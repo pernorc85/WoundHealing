@@ -25,60 +25,43 @@
 
 using namespace std; 
 
-int tstep;        
-int xstep = 1000, ystep = 1000;//unit um
+        
+const int xstep = 1000, ystep = 1000;//unit um
+const DP tsize = 200;//unit hr
+const DP D_P = 0.5;
+ 
 
-Mat_DP tensorK11(ystep,xstep);
-Mat_DP tensorK12(ystep,xstep);
-Mat_DP tensorK22(ystep,xstep);
-Mat_DP speed(ystep,xstep);
-Mat_DP theta(ystep,xstep);
- 
- 
-int ADI(DP tlength, DP D, Mat_DP& PDGF, bool output); 
-void Calculate_chemokine_gradient(Mat_DP& PDGF, Mat_DP& gradx_cytokine, Mat_DP& grady_cytokine);
-void output_fibroblast(FcellPtr* sPtr);
 void output_woundcontour();
 
  
 int main()
-{
-    int i,j,k;
-    
-//****************setup the continuum part of the model*************************        
-    DP xsize, ysize, tsize, theta, D_P;
-    
-    cout <<"Please enter the diffusion coefficient for PDGF."<<endl;
-    cin >> D_P; 
-    cout <<"Please enter the end of time."<<endl;
-    cin >> tsize; 
-    cout <<"xstep="<<xstep<<"ystep="<<ystep<<endl;
-    
+{   
+//****************setup the continuum part of the model*************************
+    cout << "initializing continuum part..." << endl;        
     srand(time(NULL)); 
-    tstep = (int)(tsize/tlength)+1;
+    int tstep = (int)(tsize/tlength)+1;
 
     Chemokine PDGF(ystep,xstep,1.0,tstep);
     PDGF.initialize(350.0);
     Mat_DP source(ystep,xstep);
     
 //****************setup the discrete part of the model**************************
-    Flist fibroblastList(FNinit);
-    
-    DP speed = 15;
-    cout <<" ok for build fibroblasts list."<<endl;
-    
-    
+    cout << "initializing discrete part..." << endl;
+    Flist fibroblastList(xstep,ystep);
+    fibroblastList.build(FNinit);
+            
     ECM extraCellularMatrix(ystep,xstep);
-    extraCellularMatrix.initiate();
+    extraCellularMatrix.initialize(350);
     
     //deallog.depth_console (0); 
     //ElasticProblem<2> elastic_problem_2d;
 
-    for(k=0; k<tstep; k++){
-//**********PDE for cytokine reaction-diffusion*********************************  
-        if(k % 10 == 0)ADI(tlength, D_P, PDGF, TRUE);
-        else ADI(tlength, D_P, PDGF, FALSE);  
-        cout << "ADIout" << endl;
+    for(int k=0; k<tstep; k++){
+        cout << "========================k = " << k << "=======================" << endl;
+        //**********PDE for cytokine reaction-diffusion*********************************  
+        if(k % 10 == 0)PDGF.diffusion(tlength, D_P, true);
+        else PDGF.diffusion(tlength, D_P, false);  
+        cout << "PDGF diffusion done." << endl;
         
 //         //starts arbitrarily large number
 //        first_iteration_tag = 1;
@@ -109,29 +92,25 @@ int main()
 //        }
         
  
-//**********collagen_alignment**************************************************       
-        extraCellularMatrix.collagen_orientation( *(PDGF.conc), fibroblastList);
+        //**********collagen_alignment**************************************************       
+        extraCellularMatrix.collagen_orientation( *(PDGF.gradx), fibroblastList);
         cout << "collagen alignment done" << endl; 
         
-//**********interpolate for fibroblast******************************************                    
-        PDGF.calculate_gradient();                 
+        //**********interpolate for fibroblast******************************************                    
+        PDGF.calculate_gradient();                
         fibroblastList.Flist_move(*(PDGF.gradx), *(PDGF.grady), extraCellularMatrix);         
         cout << "fibroblast move done" << endl;
         
-//*************output the orientation of collagen and fibroblasts***************
+        //*************output the orientation of collagen and fibroblasts***************
         if(k % 10 == 0){
             extraCellularMatrix.output_collagen(fibroblastList);
             printf("output collagen...\n");
-        } 
-//*************output the density of fibroblasts********************************               
-//       if(k % 10 == 0){    
-//            output_fibroblast(&Flist);
-//            printf("output fibroblast...\n");
-//        }                
+        }                 
     }   
     return 0;    
 }
  
+
 /*
 void output_woundcontour(){
     Mat_DP woundcontour(ystep,xstep);
@@ -182,3 +161,4 @@ void output_woundcontour(){
     out_i++;
 }
 */
+
