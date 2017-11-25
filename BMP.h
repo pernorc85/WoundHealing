@@ -11,3 +11,5 @@ void output_BMP (char* file_name,int n,const Mat_DP& data, int xstep,int ystep);
 void output_BMP2(char* file_name,int n,const Mat_DP& data, const Mat_DP& cellmatrix, int xstep, int ystep);
 
 }//end of namespace BMP
+
+#endif

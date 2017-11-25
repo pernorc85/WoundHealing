@@ -14,7 +14,8 @@
 #include <iomanip>
 #include <cmath>
 #include <ctime>
-#include "ECM_Flist.h"
+#include "ECM.h"
+#include "Flist.h"
 #include "chemokine.h"
 #include "nr.h"
 
@@ -27,6 +28,7 @@ using namespace std;
 
         
 const int xstep = 1000, ystep = 1000;//unit um
+const int wound_radius = 350;
 const DP tsize = 200;//unit hr
 const DP D_P = 0.5;
  
@@ -42,25 +44,23 @@ int main()
     int tstep = (int)(tsize/tlength)+1;
 
     Chemokine PDGF(ystep,xstep,1.0,tstep);
-    PDGF.initialize(350.0);
+    PDGF.initialize(wound_radius);
     Mat_DP source(ystep,xstep);
     
 //****************setup the discrete part of the model**************************
     cout << "initializing discrete part..." << endl;
-    Flist fibroblastList(xstep,ystep);
-    fibroblastList.build(FNinit);
+    Flist fibroblastList(xstep,ystep,FNinit);
             
     ECM extraCellularMatrix(ystep,xstep);
-    extraCellularMatrix.initialize(350);
+    extraCellularMatrix.initiate(wound_radius);
     
     //deallog.depth_console (0); 
     //ElasticProblem<2> elastic_problem_2d;
 
     for(int k=0; k<tstep; k++){
-        cout << "========================k = " << k << "=======================" << endl;
+        cout << "========================k=" << k << "=======================" << endl;
         //**********PDE for cytokine reaction-diffusion*********************************  
-        if(k % 10 == 0)PDGF.diffusion(tlength, D_P, true);
-        else PDGF.diffusion(tlength, D_P, false);  
+        PDGF.diffusion(D_P, tlength);
         cout << "PDGF diffusion done." << endl;
         
 //         //starts arbitrarily large number
@@ -93,12 +93,12 @@ int main()
         
  
         //**********collagen_alignment**************************************************       
-        extraCellularMatrix.collagen_orientation( *(PDGF.gradx), fibroblastList);
+        extraCellularMatrix.collagen_orientation( fibroblastList);
         cout << "collagen alignment done" << endl; 
         
         //**********interpolate for fibroblast******************************************                    
         PDGF.calculate_gradient();                
-        fibroblastList.Flist_move(*(PDGF.gradx), *(PDGF.grady), extraCellularMatrix);         
+        fibroblastList.Flist_move(PDGF, extraCellularMatrix);         
         cout << "fibroblast move done" << endl;
         
         //*************output the orientation of collagen and fibroblasts***************

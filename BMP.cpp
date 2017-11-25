@@ -27,19 +27,19 @@ void Prepare_BMP_Format(int width, int height) {
         unsigned char        Bmp_id[2] ;         // 0        2 (bytes)
         unsigned long        Bmp_size ;          // 2        4 
         unsigned long        Researved;          // 6        4
-	    unsigned long        Dada_offset;        // 10       4
-	    unsigned long        Size_header_inf ;   // 14       4   (always = 40) ;
-	    unsigned long        Width;              // 18       4
-	    unsigned long        Height;             // 22       4
-	    unsigned short int   Color_planes   ;    // 26       2
-	    unsigned short int   Bits_pixel    ;     // 28       2
-	    unsigned long        Compress_type ;     // 30       4
-	    unsigned long        image_size ;        // 34       4
-	    unsigned long        X_pixels_meter ;    // 38       4
+        unsigned long        Dada_offset;        // 10       4
+        unsigned long        Size_header_inf ;   // 14       4   (always = 40) ;
+        unsigned long        Width;              // 18       4
+        unsigned long        Height;             // 22       4
+        unsigned short int   Color_planes   ;    // 26       2
+        unsigned short int   Bits_pixel    ;     // 28       2
+        unsigned long        Compress_type ;     // 30       4
+        unsigned long        image_size ;        // 34       4
+        unsigned long        X_pixels_meter ;    // 38       4
         unsigned long        Y_pixels_meter ;    // 42       4
-	    unsigned long        Color_used     ;    // 46       4
-	    unsigned long        Color_important;    // 50       4
-	} pic ;
+        unsigned long        Color_used     ;    // 46       4
+        unsigned long        Color_important;    // 50       4
+    } pic ;
 
       pic.Bmp_id[0] =         'B';
 	  pic.Bmp_id[1] =         'M';         
