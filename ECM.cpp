@@ -80,7 +80,12 @@ void ECM::collagen_orientation(Flist& fibroblastList)
                 ftheta /= omegasum;  
                 DP increase = tlength*kappa1*abs(omegasum) * sin(ftheta-collagen[i][j]);
                 collagen[i][j] += increase; 
-                collagen[i][j] = (  (int)(collagen[i][j]*180/M_PI+180)%180  )*M_PI/180; 
+                while(collagen[i][j] >= M_PI) {
+                    collagen[i][j] -= M_PI;
+                }
+                while(collagen[i][j] < 0) {
+                    collagen[i][j] += M_PI;
+                }
             } 
             
 //            td_x = tissue_displacement_x[i*10][j*10];
