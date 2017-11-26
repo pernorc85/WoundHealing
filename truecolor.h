@@ -1,3 +1,6 @@
+#ifndef _TRUE_COLOR_H_
+#define _TRUE_COLOR_H_
+
 void Get_True_Color(float f, float max, float min,unsigned char& true_color1, unsigned char& true_color2, unsigned char& true_color3)
 {
     int x;
@@ -56,3 +59,5 @@ void Get_True_Color(float f, float max, float min,unsigned char& true_color1, un
     } 
     return;
 }
+
+#endif

@@ -10,8 +10,8 @@
 //             None.
 
 //{Include files}
-#include <base/quadrature_lib.h>
-#include <base/function.h>
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/function.h>
 #include <base/logstream.h>
 #include <lac/vector.h>
 #include <lac/full_matrix.h>

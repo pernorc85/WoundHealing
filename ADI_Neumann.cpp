@@ -40,7 +40,7 @@ void NR::tridag(Vec_I_DP &a, Vec_I_DP &b, Vec_I_DP &c, Vec_I_DP &r, Vec_O_DP &u)
 
 }
  
-int ADI(DP tlength, DP D, Mat_DP& PDGF, bool output)
+int ADI(DP tlength, DP D, Mat_DP& PDGF)
 {
     FILE* dataFile;
     int j,l,k;
@@ -115,40 +115,6 @@ int ADI(DP tlength, DP D, Mat_DP& PDGF, bool output)
         u = unext;
     }
 
-/*    
-    if(output == 1){
-        int jj;
-        file_name[8] = 48+out_i%10;        file_name[7] = 48+out_i/10%10;
-        file_name[6] = 48+out_i/10/10%10;  file_name[5] = 48+out_i/10/10/10%10;
-        fp_BMP = fopen(file_name,"w") ;
-        Prepare_BMP_Format(xstep,ystep) ;
-	    for(j=0;j<ystep;j++) {
-		    for(l=0;l<xstep;l++) {
-                jj = int((10*u[j][l] - Minimal)/Interval); 
-		        if(jj==0)   fwrite(&b0, 1,3,fp_BMP);
-	            if(jj==1)   fwrite(&b1, 1,3,fp_BMP);
-                if(jj==2)   fwrite(&b2, 1,3,fp_BMP);
-		        if(jj==3)   fwrite(&b3, 1,3,fp_BMP);
-		        if(jj==4)   fwrite(&b4, 1,3,fp_BMP);
-		        if(jj==5)   fwrite(&b5, 1,3,fp_BMP);
-		        if(jj==6)   fwrite(&b6, 1,3,fp_BMP);
-		        if(jj==7)   fwrite(&b7, 1,3,fp_BMP);
-		        if(jj==8)   fwrite(&b8, 1,3,fp_BMP);
-		        if(jj==9)   fwrite(&b9, 1,3,fp_BMP);
-		        if(jj==10)  fwrite(&b10, 1,3,fp_BMP);
-		        if(jj==11)  fwrite(&b11, 1,3,fp_BMP);
-		        if(jj==12)  fwrite(&b12, 1,3,fp_BMP);
-		        if(jj==13)  fwrite(&b13, 1,3,fp_BMP);
-		        if(jj==14)  fwrite(&b14, 1,3,fp_BMP);
-		        if(jj==15)  fwrite(&b15, 1,3,fp_BMP);
-		        if(jj < 0)    fwrite(&b_0,  1,3,fp_BMP);
-		        if(jj > 15)   fwrite(&b_16, 1,3,fp_BMP);
-            }
-	    }
-        out_i++;
-	    fclose(fp_BMP); 
-    }
-*/ 
             
     PDGF = u;                    
     return EXIT_SUCCESS;

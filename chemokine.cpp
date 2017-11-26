@@ -5,7 +5,7 @@
 #include "BMP.h"
 
 using namespace std;
-#define F(x)   0.5 - 1.0*x
+extern int ADI(DP, DP, Mat_DP&);
 
 Chemokine::Chemokine(int nx_, int ny_, double dx_, double dt_):
     xstep(nx_),ystep(ny_),dx(dx_),dt(dt_){
@@ -66,8 +66,8 @@ void Chemokine::calculate_gradient(){
     isGradientCalculated = true;
 }
 
-void Chemokine::diffusion(double D, double tlength){
-     //...call external function ADI...
+void Chemokine::diffusion(double D, double time_step){
+     ADI(time_step, D, *conc); 
 }
 
 void Chemokine::output(){

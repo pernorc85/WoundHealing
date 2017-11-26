@@ -1,6 +1,6 @@
-//angiogenesis_100mul100.h
+//angiogenesis.cpp
 //    VERSION: (1 August 2010)
-//    PURPOSE: Header file for the wound healing angiogenesis model.
+//    PURPOSE: Source file for the wound healing angiogenesis model.
 //             Include all functions for the angiogenesis process:
 //             Tip formation, tip migration, branching, anastamosis.
 //             Also includes functions for numeric calculation related to angiogenesis
@@ -9,16 +9,23 @@
 //             None.
 //    OUTPUT FILES:
 //             "vasc*****.BMP" 
-#define ENinit 12
 
 #include "angiogenesis.h"
 #include "BMP.h"
+
+namespace BMP{
+extern unsigned char b0[3], b15[3];
+extern unsigned char b_green[3];
+extern unsigned char b_red[3];
+
+}
+
+const int ENinit = 12;
 const double PI = 3.1415926535897932;
-static int Elist::branch_id=1;
+int Elist::branch_id=1;
 
 DP angle_substract(DP theta1,DP theta2);
 void feedback_from_oxygen_to_VEGF(Mat_DP& vasculature_density,Mat_DP& VEGF);
-void Ecell_newtip(Mat_DP& cellmatrix, EcellPtr* sPtr);
 void regression(Vec_DP xlist,int xcount,Vec_DP ylist,int ycount,double* b,double* xycor); 
 
 
@@ -32,7 +39,7 @@ void regression(Vec_DP xlist,int xcount,Vec_DP ylist,int ycount,double* b,double
 //##         Program currently set to place 12 tips evenly spaced at the round   #
 //##         shaped wound boundary with a direction inward.                      #
 //################################################################################
-void Elist::buildElist(EcellPtr* sPtr, EdgePtr* edgeList)
+void Elist::buildElist(EdgePtr* edgeList)
 {
     int i;
     DP x,y,theta;
@@ -60,26 +67,20 @@ void Elist::buildElist(EcellPtr* sPtr, EdgePtr* edgeList)
             add_to_edgeList(edgeList,new_edge,running_edge_ID);
             running_edge_ID++;
 //        }
-	    newPtr = (EcellPtr)malloc(sizeof(Ecell));
- 	    newPtr->xx = x;
- 	    newPtr->yy = y;
- 	    newPtr->branching = 0;
- 	    newPtr->id=branch_id;
+	    newPtr = new Endocyte(x, y, theta, branch_id, 0);
  	    branch_id++;
-	    newPtr->theta = theta;
 	    newPtr->curEdgePtr = new_edge;
-        newPtr->next = NULL;
+            newPtr->next = NULL;
  	    prePtr = NULL;
-        curPtr = *sPtr;
+        curPtr = *Eroot;
         while(curPtr != NULL){
             prePtr = curPtr;
-	        curPtr = curPtr->next;
+	    curPtr = curPtr->next;
         }      
         if(prePtr == NULL){
-            newPtr->next =*sPtr;
-            *sPtr = newPtr;
-        }
-        else{
+            newPtr->next =*Eroot;
+            *Eroot = newPtr;
+        }else{
             prePtr->next = newPtr;
             newPtr->next = curPtr;
         }          
@@ -95,7 +96,7 @@ void Elist::buildElist(EcellPtr* sPtr, EdgePtr* edgeList)
 //##         following the guicance of chemokine and collagen.                   #
 //##         Tips that are subject to branch will be marked.                     #
 //################################################################################
-void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cdensity, DP collagen_temp, Mat_DP& cellmatrix, DP speed)
+void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cdensity, DP collagen_temp, DP time_step)
 { 
     {
         if((cellPtr->curEdgePtr)->xn<200){
@@ -107,7 +108,7 @@ void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cde
             (cellPtr->curEdgePtr)->yn++;
         }
     }
-    
+    Mat_DP& cellmatrix = *cellmatrix_ptr; 
     DP rou1 = 0.5, rou2 = 0.3;
     DP collagen_taken;
     DP gradtheta; 
@@ -124,8 +125,7 @@ void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cde
         else if(gradx < 0 && grady <= 0)gradtheta = M_PI + atan(grady/gradx);//3nd phase
         else if(gradx > 0 && grady <= 0)gradtheta = 2*M_PI + atan(grady/gradx);//4th phase
         //if(gradtheta < 0 || gradtheta > 2*PI) cout<< "error" << endl;
-    }  
-    else{
+    } else {
          if(grady > 0)gradtheta =  M_PI/2;
          else if(grady < 0)gradtheta = M_PI*3/2;
          else gradtheta = -1;
@@ -134,24 +134,24 @@ void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cde
     if(abs(cellPtr->theta - collagen_temp) <= M_PI/2)//case 1&4; part of 2; part of 3; part of 6;
         collagen_taken = collagen_temp;
     else if(abs(cellPtr->theta - collagen_temp) > M_PI/2 && abs(cellPtr->theta - collagen_temp) <= M_PI){
-        if(cellPtr->theta <= M_PI/2 && collagen_temp > M_PI/2 && collagen_temp <= PI)//part of 2
-             collagen_taken = collagen_temp - PI;
-        else collagen_taken = collagen_temp + PI;//part of 3; part of 6;
+        if(cellPtr->theta <= M_PI/2 && collagen_temp > M_PI/2 && collagen_temp <= M_PI)//part of 2
+             collagen_taken = collagen_temp - M_PI;
+        else collagen_taken = collagen_temp + M_PI;//part of 3; part of 6;
     }
-    else if(cellPtr->theta > PI*3/2 && collagen_temp < PI/2){//case 7
-        if(collagen_temp+2*PI-cellPtr->theta < PI/2)
-            collagen_taken = collagen_temp + 2*PI;
-        else collagen_taken = collagen_temp + PI;  
+    else if(cellPtr->theta > M_PI*3/2 && collagen_temp < M_PI/2){//case 7
+        if(collagen_temp+2*M_PI-cellPtr->theta < M_PI/2)
+            collagen_taken = collagen_temp + 2*M_PI;
+        else collagen_taken = collagen_temp + M_PI;  
     }
-    else collagen_taken = collagen_temp + PI;//case 5&8 
+    else collagen_taken = collagen_temp + M_PI;//case 5&8 
     //-----------------------------------------------------------------
     
     //make a decision if to branch 
     //cout <<"collagen_taken="<<collagen_taken<<" gradtheta=" << gradtheta << endl;
     int branch = 0;
-    if(collagen_taken < 0 && gradtheta > 3/2*PI)branch = 0;    
-    else if(collagen_taken > 2*PI && gradtheta < PI/2)branch = 0;           
-    else if(abs(collagen_taken - gradtheta) > PI/2 && cellPtr->branching == 0)branch = 1;
+    if(collagen_taken < 0 && gradtheta > 3/2*M_PI)branch = 0;    
+    else if(collagen_taken > 2*M_PI && gradtheta < M_PI/2)branch = 0;           
+    else if(abs(collagen_taken - gradtheta) > M_PI/2 && cellPtr->branching == 0)branch = 1;
     else branch = 0;
     //make sure there is enough space to branch
     //==there is only one trail  
@@ -163,16 +163,16 @@ void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cde
                 if((int)(cellmatrix[i][j])%10 == 1 || (int)(cellmatrix[i][j])%10 == 3){
                     ydist = i - (int)cellPtr->yy; xdist = j - (int)cellPtr->xx;
                     if(xdist > 0 && ydist >= 0)theta = atan(ydist/xdist);//1st phase
-                    else if(xdist < 0 && ydist >= 0)theta = PI + atan(ydist/xdist);//2nd phase
-                    else if(xdist < 0 && ydist <= 0)theta = PI + atan(ydist/xdist);//3nd phase
-                    else if(xdist > 0 && ydist <= 0)theta = 2*PI + atan(ydist/xdist);//4th phase
+                    else if(xdist < 0 && ydist >= 0)theta = M_PI + atan(ydist/xdist);//2nd phase
+                    else if(xdist < 0 && ydist <= 0)theta = M_PI + atan(ydist/xdist);//3nd phase
+                    else if(xdist > 0 && ydist <= 0)theta = 2*M_PI + atan(ydist/xdist);//4th phase
                     else{
-                        if(ydist > 0)theta =  PI/2;
-                        else if(ydist < 0)theta = PI*3/2;
+                        if(ydist > 0)theta =  M_PI/2;
+                        else if(ydist < 0)theta = M_PI*3/2;
                         else theta = -1;
                     }
                 
-                    if(theta != -1 && abs(angle_substract(theta, cellPtr->theta))< PI/6+PI/2)branch = 0;
+                    if(theta != -1 && abs(angle_substract(theta, cellPtr->theta))< M_PI/6+M_PI/2)branch = 0;
                 }     
             }
         }
@@ -181,27 +181,27 @@ void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cde
      
     if(branch == 1){
         cellPtr->branching = 25;
-        cout << "branching adding " <<endl;
-    }
-    else{
+        cout << "branching marked " <<endl;
+    } else {
         if(gradtheta >= 0){
-            if(gradtheta < PI/2 && cellPtr->theta > 3/2*PI && cellPtr->theta < 2*PI){
-                cellPtr->theta = (1 - rou1 - rou2)*cellPtr->theta + rou1*collagen_taken + rou2*(gradtheta + 2*PI);
+            if(gradtheta < M_PI/2 && cellPtr->theta > 3/2*M_PI && cellPtr->theta < 2*M_PI){
+                cellPtr->theta = (1 - rou1 - rou2)*cellPtr->theta + rou1*collagen_taken + rou2*(gradtheta + 2*M_PI);
             }
-            else if(gradtheta > 3/2*PI && gradtheta < 2*PI && cellPtr->theta < PI/2){
-                cellPtr->theta = (1 - rou1 - rou2)*cellPtr->theta + rou1*collagen_taken + rou2*(gradtheta - 2*PI);
+            else if(gradtheta > 3/2*M_PI && gradtheta < 2*M_PI && cellPtr->theta < M_PI/2){
+                cellPtr->theta = (1 - rou1 - rou2)*cellPtr->theta + rou1*collagen_taken + rou2*(gradtheta - 2*M_PI);
             }
             else cellPtr->theta = (1 - rou1 - rou2)*cellPtr->theta + rou1*collagen_taken + rou2*gradtheta;
-        }    
-        else if(gradtheta == -1) cellPtr->theta = (1 - rou1)*cellPtr->theta + rou1 * collagen_taken;
-        cellPtr->theta = (  (int)(cellPtr->theta*180/PI+360)%360  )*PI/180;  
-        cellPtr->xx += speed_taken * tlength * cos(cellPtr->theta);
-        cellPtr->yy += speed_taken * tlength * sin(cellPtr->theta);
+        } else if(gradtheta == -1) {
+            cellPtr->theta = (1 - rou1)*cellPtr->theta + rou1 * collagen_taken;
+        }
+        cellPtr->theta = (  (int)(cellPtr->theta*180/M_PI+360)%360  )*M_PI/180;  
+        cellPtr->xx += speed_taken * time_step * cos(cellPtr->theta);
+        cellPtr->yy += speed_taken * time_step * sin(cellPtr->theta);
         
         if(cellPtr->xx < 0)cellPtr->xx = 0;
         if(cellPtr->yy < 0)cellPtr->yy = 0;
-        if(cellPtr->xx >= 1000)cellPtr->xx = 999;
-        if(cellPtr->yy >= 1000)cellPtr->yy = 999;  
+        if(cellPtr->xx >= mXstep)cellPtr->xx = mXstep-1;
+        if(cellPtr->yy >= mYstep)cellPtr->yy = mYstep-1;  
     }
     return;          
 }
@@ -214,9 +214,10 @@ void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cde
 //##         the original tip, the other daughter tip will be created as a new   #
 //##         Ecell.                                                              #
 //################################################################################
-void Elist::Ecell_branch(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, Mat_DP& collagen, Mat_DP& gradx_VEGF, Mat_DP& grady_VEGF)
+void Elist::Ecell_branch(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, Mat_DP& collagen, 
+                         Mat_DP& gradx_VEGF, Mat_DP& grady_VEGF, DP time_step)
 { 
-    DP collagen_temp, collagen_taken, gradx, grady, gradtheta;
+    DP collagen_temp, collagen_taken, gradx, grady, gradtheta = -1;
     EcellPtr newPtr, prePtr, curPtr;
     curPtr = *sPtr; 
     int gridy,gridx;
@@ -232,14 +233,13 @@ void Elist::Ecell_branch(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, M
             else gridx=(tempx+100-tempx%100)/100;      
             collagen_temp = collagen[gridy][gridx]; 
             //be maticulous here-----------------------------------------------
-            if(abs(curPtr->theta - collagen_temp) <= PI/2)//case 1&4; part of 2; part of 3; part of 6;
+            if(abs(curPtr->theta - collagen_temp) <= PI/2) {//case 1&4; part of 2; part of 3; part of 6;
                 collagen_taken = collagen_temp;
-            else if(abs(curPtr->theta - collagen_temp) > PI/2 && abs(curPtr->theta - collagen_temp) <= PI){
+            } else if(abs(curPtr->theta - collagen_temp) > PI/2 && abs(curPtr->theta - collagen_temp) <= PI){
                 if(curPtr->theta <= PI/2 && collagen_temp > PI/2 && collagen_temp <= PI)//part of 2
                      collagen_taken = collagen_temp - PI;
                 else collagen_taken = collagen_temp + PI;//part of 3; part of 6;
-            }
-            else if(curPtr->theta > PI*3/2 && collagen_temp < PI/2){//case 7
+            } else if(curPtr->theta > PI*3/2 && collagen_temp < PI/2){//case 7
                 if(collagen_temp+2*PI-curPtr->theta < PI/2)
                     collagen_taken = collagen_temp + 2*PI;
                 else collagen_taken = collagen_temp + PI;  
@@ -254,32 +254,28 @@ void Elist::Ecell_branch(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, M
                 else if(gradx < 0 && grady <= 0)gradtheta = PI + atan(grady/gradx);//3nd phase
                 else if(gradx > 0 && grady <= 0)gradtheta = 2*PI + atan(grady/gradx);//4th phase
                 //cout << "gradx=" << gradx << "grady=" << grady << "gradtheta=" << gradtheta << endl; 
-            }     
-            else{
+            } else {
                 if(grady > 0)gradtheta =  PI/2;
                 else if(grady < 0)gradtheta = PI*3/2;
                 else gradtheta = -1;
             }
            
-            curPtr->xx = curPtr->xx + 15 * tlength *cos(collagen_taken);
-            curPtr->yy = curPtr->yy + 15 * tlength *sin(collagen_taken); 
+            curPtr->xx += speed * time_step *cos(collagen_taken);
+            curPtr->yy += speed * time_step *sin(collagen_taken); 
             if(curPtr->xx < 0)curPtr->xx = 0;
             if(curPtr->yy < 0)curPtr->yy = 0;
-            if(curPtr->xx >= 1000)curPtr->xx = 999;
-            if(curPtr->yy >= 1000)curPtr->yy = 999; 
+            if(curPtr->xx >= mXstep)curPtr->xx = mXstep-1;
+            if(curPtr->yy >= mYstep)curPtr->yy = mYstep-1; 
             curPtr->theta = collagen_taken;
             curPtr->branching--;  
             
-            newPtr = (EcellPtr)malloc(sizeof(Ecell)); 
-            newPtr->xx = curPtr->xx + 15 * tlength * cos(gradtheta);
-            newPtr->yy = curPtr->yy + 15 * tlength * sin(gradtheta); 
-            if(newPtr->xx < 0)newPtr->xx = 0;
-            if(newPtr->yy < 0)newPtr->yy = 0;
-            if(newPtr->xx >= 1000)newPtr->xx = 999;
-            if(newPtr->yy >= 1000)newPtr->yy = 999; 
-            newPtr->theta = gradtheta;
-            newPtr->branching = 24;
-            newPtr->id = branch_id;
+            DP xx = curPtr->xx + speed * time_step * cos(gradtheta);
+            DP yy = curPtr->yy + speed * time_step * sin(gradtheta); 
+            if(xx < 0)xx = 0;
+            if(yy < 0)yy = 0;
+            if(xx >= mXstep)xx = mXstep-1;
+            if(yy >= mYstep)yy = mYstep-1; 
+            newPtr = new Endocyte(xx, yy, gradtheta, branch_id, 24);
             branch_id++;
             newPtr->next = NULL; 
             
@@ -353,8 +349,9 @@ void Elist::Ecell_branch(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, M
 //##         Merging of two tips and merging of tip with sprout are treated      #
 //##         seperately.                                                         #
 //################################################################################
-void Elist::Ecell_looping(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, Mat_DP cellmatrix)
+void Elist::Ecell_looping(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList)
 { 
+    Mat_DP& cellmatrix = *cellmatrix_ptr;
     EcellPtr tempPtr, prePtr, curPtr,tPtr;
 //merging of two tips   
     curPtr = *sPtr; 
@@ -380,8 +377,6 @@ void Elist::Ecell_looping(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, 
     curPtr = *sPtr;
     prePtr = curPtr;
     curPtr = curPtr->next;
-    
-    int i,j;
     
     while(curPtr != NULL){                
         if((int)(cellmatrix[(int)curPtr->yy][(int)curPtr->xx])%10 == 1 && curPtr->id>12){
@@ -434,7 +429,7 @@ void Elist::Ecell_looping(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, 
 }  
 
 //################################################################################
-//## output_vasculature:                                                         #
+//## update_cellmatrix:                                                          #
 //##                                                                             #
 //##         Update the matrix recording vasculature and output a picture if     #
 //##         asked. Vasculature is recorded as the trace of migrating tip cells. #
@@ -442,17 +437,14 @@ void Elist::Ecell_looping(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, 
 //##         cells.                                                              #
 //##                                                                             #
 //################################################################################
-void Elist::output_vasculature(bool output)
+void Elist::update_cellmatrix(bool output)
 { 
     Mat_DP &cellmatrix = *cellmatrix_ptr; 
-    EcellPtr ecurPtr;
-    int i,j;
     int i_range,j_range;
-    int xstep = 1000, ystep = 1000;
     static int out_i = 0;
     
-    for(i=0;i<ystep;i++) {
-        for(j=0;j<xstep;j++) {
+    for(int i=0;i<mYstep;i++) {
+        for(int j=0;j<mXstep;j++) {
             if((int)(cellmatrix[i][j])%10 == 3)cellmatrix[i][j] -= 2;//11,21,31,41,... represents old vasculature
             if((int)(cellmatrix[i][j])%10 == 4)cellmatrix[i][j] -= 2;//12,22,32,42,... represents grids surrounding old vasculature
             if(cellmatrix[i][j] == 1){
@@ -483,60 +475,53 @@ void Elist::output_vasculature(bool output)
         }
     }
         
-    std::list<Endocyte>::iterator ecurPtr = mECells.begin(); 
+    EcellPtr ecurPtr = *Eroot; 
     
-    for(; ecurPtr != mECells.end(); ecurPtr++){
+    while(ecurPtr != nullptr){
         cellmatrix[(int)ecurPtr->yy][(int)ecurPtr->xx] = ecurPtr->id*10 + 3;//3 represents newly formed vasculature
-        if((int)ecurPtr->xx >= 2 && (int)ecurPtr->xx < 998 &&
-           (int)ecurPtr->yy >= 2 && (int)ecurPtr->yy < 998){
-            for(i = (int)ecurPtr->yy-2;i <= (int)ecurPtr->yy+2;i++){
-                for(j = (int)ecurPtr->xx-2;j <= (int)ecurPtr->xx+2;j++){
+        if((int)ecurPtr->xx >= 2 && (int)ecurPtr->xx < mXstep-2 &&
+           (int)ecurPtr->yy >= 2 && (int)ecurPtr->yy < mYstep-2){
+            for(int i = (int)ecurPtr->yy-2;i <= (int)ecurPtr->yy+2;i++){
+                for(int j = (int)ecurPtr->xx-2;j <= (int)ecurPtr->xx+2;j++){
                     if(cellmatrix[i][j] == 0)cellmatrix[i][j] = ecurPtr->id*10 + 4;//4 represents grids surrounding new vasculature
                 }
             } 
         }
+        ecurPtr = ecurPtr->next;
     }
     
 
     
     if(output == true){   
-        char  file_name[15]="cell00000.BMP";
-        file_name[8] = 48+out_i%10;        file_name[7] = 48+out_i/10%10;
-        file_name[6] = 48+out_i/10/10%10;  file_name[5] = 48+out_i/10/10/10%10;
-        fp_BMP = fopen(file_name,"w");
-        BMP::Prepare_BMP_Format(1000,1000);
-        for(i=0;i<ystep;i++) {
-            for(j=0;j<xstep;j++) {
-                if(cellmatrix[i][j] == 0)fwrite(&b0, 1,3,fp_BMP);
-                if((int)(cellmatrix[i][j])%10 >= 1 && (int)(cellmatrix[i][j])%10 <= 4)fwrite(&b15,1,3,fp_BMP); 
-                if(cellmatrix[i][j] == 5 || cellmatrix[i][j] == 6)fwrite(&b_green,1,3,fp_BMP);
-                if(cellmatrix[i][j] == 7 || cellmatrix[i][j] == 8)fwrite(&b_red,1,3,fp_BMP);
+        char file_name[15];
+        sprintf(file_name, "cell%05d.BMP", out_i++);
+        FILE* fp_BMP = fopen(file_name,"w");
+        BMP::Prepare_BMP_Format(mXstep,mYstep);
+        for(int i=0;i<mYstep;i++) {
+            for(int j=0;j<mXstep;j++) {
+                if(cellmatrix[i][j] == 0)fwrite(&BMP::b0, 1,3,fp_BMP);
+                if((int)(cellmatrix[i][j])%10 >= 1 && (int)(cellmatrix[i][j])%10 <= 4)fwrite(&BMP::b15,1,3,fp_BMP); 
+                if(cellmatrix[i][j] == 5 || cellmatrix[i][j] == 6)fwrite(&BMP::b_green,1,3,fp_BMP);
+                if(cellmatrix[i][j] == 7 || cellmatrix[i][j] == 8)fwrite(&BMP::b_red,1,3,fp_BMP);
             }
         }
 
         fclose(fp_BMP); 
-        out_i++;
     } 
 }
 
-DP angle_substract(DP theta1,DP theta2){
-    if(theta1<PI/2 && theta1>=0 && theta2>3/2*PI && theta2<2*PI)return theta1 + 2*PI -theta2;
-    else if(theta2<PI/2 && theta2>=0 && theta1>3/2*PI && theta1<2*PI)return -(theta2 + 2*PI -theta1);
-    else return theta1-theta2;
-}
 
 
 void Elist::calculate_for_oxygen(Mat_DP& vasculature_density)
 {
      Mat_DP& cellmatrix = *cellmatrix_ptr;
-     int xstep=1000,ystep=1000;
      int i,j,i_range,j_range;
      DP omega;
-     for(i=0;i<ystep; i++){
-         for(j=0; j<xstep; j++){
+     for(i=0;i<mYstep; i++){
+         for(j=0; j<mXstep; j++){
              vasculature_density[i][j]=0;
-             for(i_range=max(0,i-20);i_range<min(999,i+20);i_range++){
-                 for(j_range=max(0,j-int( sqrt( 20*20-(i-i_range)*(i-i_range) ) ) );j_range<min(999,j+int( sqrt( 20*20-(i-i_range)*(i-i_range) ) ) );j_range++){
+             for(i_range=max(0,i-20);i_range<min(mYstep-1,i+20);i_range++){
+                 for(j_range=max(0,j-int( sqrt( 20*20-(i-i_range)*(i-i_range) ) ) );j_range<min(mXstep-1,j+int( sqrt( 20*20-(i-i_range)*(i-i_range) ) ) );j_range++){
                      if(cellmatrix[i_range][j_range]==1 || cellmatrix[i_range][j_range]==2){
                          omega = (1-abs(i_range-i)/20) * (1-abs(j_range-j)/20);
                          vasculature_density[i][j] += omega;
@@ -549,15 +534,19 @@ void Elist::calculate_for_oxygen(Mat_DP& vasculature_density)
     return;
 }
   
+DP angle_substract(DP theta1,DP theta2){
+    if(theta1<PI/2 && theta1>=0 && theta2>3/2*PI && theta2<2*PI)return theta1 + 2*PI -theta2;
+    else if(theta2<PI/2 && theta2>=0 && theta1>3/2*PI && theta1<2*PI)return -(theta2 + 2*PI -theta1);
+    else return theta1-theta2;
+}
+
 void Elist::output_vasculature_density()
 {
-    int ystep=1000,xstep=1000;
-    int j,l;
     static int out_i = 0;
     char  file_name[14]="vden00000.BMP";
     sprintf(file_name, "vden%05d.BMP", out_i++);
-    BMP::Prepare_BMP_Format(ystep,xstep);
-    BMP::output_BMP(file_name, 14, *vas_density_ptr, ystep, xstep);
+    BMP::Prepare_BMP_Format(mXstep,mYstep);
+    BMP::output_BMP(file_name, 14, *vas_density_ptr, mYstep, mXstep);
     return;
 }
      
@@ -580,14 +569,14 @@ void feedback_from_oxygen_to_VEGF(Mat_DP& vasculature_density,Mat_DP& VEGF)
 //##                                                                             #
 //##                                                                             #
 //################################################################################
-void Ecell_newtip(Mat_DP& cellmatrix, EcellPtr* sPtr)
+void Elist::Ecell_newtip()
 {
+    Mat_DP &cellmatrix = *cellmatrix_ptr;
 //===========find the section of vessel with a potential of new tips formation======================================
-    int j,l;
     int j_range,l_range; 
-    Mat_DP vesseltheta(1000,1000);
-    for(j=0;j<1000;j++){
-        for(l=0;l<1000;l++){
+    Mat_DP vesseltheta(mYstep,mXstep);
+    for(int j=0;j<mYstep;j++){
+        for(int l=0;l<mXstep;l++){
             vesseltheta[j][l] = -1;
             if(cellmatrix[j][l] == 1){                    
 //====================find the adjacent cellmatrix[j][l]==1========================
@@ -623,21 +612,21 @@ void Ecell_newtip(Mat_DP& cellmatrix, EcellPtr* sPtr)
     
     
 //==============find the exact position for new tip formation======================    
-    for(j=0;j<1000;j++){
-        for(l=0;l<1000;l++){
+    for(int j=0;j<mYstep;j++){
+        for(int l=0;l<mXstep;l++){
             if(cellmatrix[j][l] == 5){                    
 //====================find the adjacent cellmatrix[j][l]==10========================
 //====================for a series of 10, find the middle one=======================
 //====================use as the location of new tip================================
                 int count_5=0, count_7=0;
-                for(j_range=max(0,j-20);j_range<min(1000,j+20);j_range++){
-                    for(l_range=max(0,l-20);l_range<min(1000,l+20);l_range++){
+                for(j_range=max(0,j-20);j_range<min(mYstep, j+20);j_range++){
+                    for(l_range=max(0,l-20);l_range<min(mYstep, l+20);l_range++){
                         if(cellmatrix[j_range][l_range]==5)count_5++;
                     }
                 }
                 
-                for(j_range=max(0,j-30);j_range<min(1000,j+30);j_range++){
-                    for(l_range=max(0,l-30);l_range<min(1000,l+30);l_range++){
+                for(j_range=max(0,j-30);j_range<min(mYstep, j+30);j_range++){
+                    for(l_range=max(0,l-30);l_range<min(mXstep, l+30);l_range++){
                         if(cellmatrix[j_range][l_range]==7)count_7++;
                     }
                 }
@@ -654,11 +643,26 @@ void Ecell_newtip(Mat_DP& cellmatrix, EcellPtr* sPtr)
 //========build Elist===========================================================
     EcellPtr newPtr,prePtr,curPtr;
        
-    for(j=0;j<1000;j++){
-        for(l=0;l<1000;l++){
+    for(int j=0;j<1000;j++){
+        for(int l=0;l<1000;l++){
             if(cellmatrix[j][l] == 7){                                                   
                 double theta = (int)((vesseltheta[j][l] + PI/2)*180/PI)%360 *PI/180;
-                mECells.push_back(Endocyte(l, j, theta, mECells.size(), 24));                   
+                newPtr = new Endocyte(l, j, theta, branch_id++, 24);       
+                newPtr->next = NULL;
+
+                prePtr = NULL;
+                curPtr = *Eroot;
+                while(curPtr != NULL){
+                    prePtr = curPtr;
+                    curPtr = curPtr->next;
+                }
+                if (prePtr == NULL){
+                    newPtr->next = *Eroot;
+                    *Eroot = newPtr;
+                }else{
+                    prePtr->next = newPtr;
+                    newPtr->next = curPtr;
+                }            
             }
         }
     }

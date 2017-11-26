@@ -45,8 +45,8 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
 {
     DP rou1 = 0.5, rou2 = 0.3;
 //************************chemotaxis********************************************
-    DP gradtheta;
-    DP speed_taken;
+    DP gradtheta = -1;
+    DP speed_taken = speed;
     
     if(cdensity < 0.7)speed_taken = speed * (1 + 2*fdensity)/3;
     else speed_taken = speed * (1 + 2*fdensity)/3 * (1.7 - cdensity);

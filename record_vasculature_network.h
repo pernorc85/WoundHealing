@@ -1,13 +1,16 @@
+#ifndef _RECORD_H_
+#define _RECORD_H_
+
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
 #include <cmath>//pow
 #include "nr.h"
 #include "truecolor.h"
-#include "ECM.h"
+#include "BMP.h"
 
 
-extern int xstep, ystep;
+extern const int xstep, ystep;
 static int running_node_ID=0;
 static int running_edge_ID=0;
 
@@ -90,9 +93,8 @@ void add_to_nodeList(NodePtr* nodeList,NodePtr new_node,int running_node_ID);
 
 void add_to_edgeList(EdgePtr* edgeList,EdgePtr new_edge,int running_edge_ID){
     cout<<"\tAdding edge to the edgeList...";
-    EdgePtr prePtr, curPtr;
+    EdgePtr prePtr = NULL, curPtr = *edgeList;
     int count=0;
-    curPtr = *edgeList;
     while(count < running_edge_ID && curPtr != NULL){
         prePtr = curPtr;
         curPtr = curPtr->next;
@@ -126,10 +128,8 @@ void search_edgeList(EdgePtr* edgeList,EdgePtr old_edge,int edge_ID){
 
 void add_to_nodeList(NodePtr* nodeList,NodePtr new_node,int running_node_ID){
     cout<<"\tAdding node to the nodeList...";
-    NodePtr prePtr, curPtr;
+    NodePtr prePtr = NULL, curPtr = *nodeList;
     int count=0;
-    curPtr = *nodeList;
-    cout<<"ok...";
     while(count < running_node_ID && curPtr != NULL){
         prePtr = curPtr;
         curPtr = curPtr->next;
@@ -170,14 +170,14 @@ void output_edgeID_matrix(EdgePtr* edgeList, int output){
          curPtr = curPtr->next;
      }
 
+    /*
     if(output == 1){
-        char  file_name[15]="edge00000.BMP";
+        char file_name[15];
+        sprintf(file_name, "edge%05d.BMP", out_i++);
+        FILE* fp_BMP = fopen(file_name,"w");
         int jj;
        	unsigned char true_color[3];
-        file_name[8] = 48+out_i%10;        file_name[7] = 48+out_i/10%10;
-        file_name[6] = 48+out_i/10/10%10;  file_name[5] = 48+out_i/10/10/10%10;
-        fp_BMP = fopen(file_name,"w") ;
-        BMP::Prepare_BMP_Format(1000,1000) ;
+        BMP::Prepare_BMP_Format(xstep,ystep);
         for(j=0;j<ystep;j++) {
     	    for(l=0;l<xstep;l++) {
                 jj = edgeID_matrix[j][l];
@@ -185,16 +185,16 @@ void output_edgeID_matrix(EdgePtr* edgeList, int output){
                     Get_True_Color(jj, 200, 0, true_color[0], true_color[1], true_color[2]);
                     cout<<"truecolor"<<(int)true_color[0]<<" "<<(int)true_color[1]<<" "<<(int)true_color[2]<<endl;
     	            fwrite(&true_color, 1,3,fp_BMP);
-                }
-                else{
+                } else {
                     fwrite(&b0, 1,3,fp_BMP);
                 }
             }
         }
-        out_i++;
         fclose(fp_BMP); 
     }
+    */
 
     return;                           
 }    
-     
+    
+#endif 

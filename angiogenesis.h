@@ -10,7 +10,7 @@ using namespace std;
 typedef struct Endocyte Ecell;
 typedef Ecell* EcellPtr;
 struct Endocyte{
-    Endocyte(xx_, yy_, theta_, id_, branching_):
+    Endocyte(DP xx_, DP yy_, DP theta_, int id_, int branching_):
         xx(xx_), yy(yy_), theta(theta_), id(id_), branching(branching_) {}
     DP xx, yy;
     DP theta;
@@ -22,7 +22,8 @@ struct Endocyte{
 
 class Elist{
 public:
-    Elist(int xstep,int ystep){
+    Elist(int xstep,int ystep):
+            mXstep(xstep), mYstep(ystep) {
         cellmatrix_ptr = new Mat_DP(ystep, xstep);
         vas_density_ptr = new Mat_DP(ystep, xstep);
     }
@@ -31,20 +32,22 @@ public:
         delete vas_density_ptr;
     }
 
-    void buildElist(EcellPtr *sPtr, EdgePtr* edgeList);
-    void Ecell_move(EcellPtr cellPtr, DP gradx_VEGF, DP grady_VEGF, DP fdensity, DP cdensity, DP collagen, Mat_DP& cellmatrix, DP speed);
-    void Ecell_branch(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, Mat_DP& collagen, Mat_DP& gradx_VEGF, Mat_DP& grady_VEGF);
-    void Ecell_looping(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, Mat_DP cellmatrix);
+    void buildElist(EdgePtr* edgeList);
+    void Ecell_move(EcellPtr cellPtr, DP gradx_VEGF, DP grady_VEGF, DP fdensity, DP cdensity, DP collagen, DP time_step);
+    void Ecell_branch(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList, Mat_DP& collagen, Mat_DP& gradx_VEGF, Mat_DP& grady_VEGF, DP time_step);
+    void Ecell_looping(EcellPtr* sPtr, EdgePtr* edgeList, NodePtr* nodeList);
+    void Ecell_newtip();
 
     void calculate_for_oxygen(Mat_DP& vas_density);
     
-    void output_vasculuture(bool output);
+    void update_cellmatrix(bool output);
     void output_vasculature_density();
 protected:
-    std::list<Endocyte> mECells;
-    EcellPtr Eroot;
+    int mXstep, mYstep;
+    EcellPtr *Eroot;
     Mat_DP *cellmatrix_ptr;
     Mat_DP *vas_density_ptr;
+    DP speed;//default speed of Endocyte 
     static int branch_id;
 };
 

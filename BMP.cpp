@@ -11,7 +11,7 @@ unsigned char b4[3], b5[3], b6[3], b7[3];
 unsigned char b8[3], b9[3], b10[3],b11[3];
 unsigned char b12[3],b13[3],b14[3],b15[3];
 unsigned char b_0[3],b_16[3];
-unsigned char b_yellow[3];
+unsigned char b_yellow[3], b_green[3], b_red[3];
 	
 FILE  *fp_BMP;
 float Maximal=  2.0 ;
@@ -88,6 +88,8 @@ void Prepare_BMP_Format(int width, int height) {
 		b_16[i] = 255 ; // for scale levels above b15
 	}
     b_yellow[0] = 0, b_yellow[1] = 255, b_yellow[2] = 255;
+    b_green[0] = 0, b_green[1] = 255, b_green[2] = 0;
+    b_red[0] = 255, b_red[1] = 0, b_red[2] = 0;
 }
 
 void output_BMP(char* file_name, int n, const Mat_DP& data, int xstep, int ystep){
