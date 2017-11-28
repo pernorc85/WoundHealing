@@ -10,10 +10,8 @@ using namespace std;
 Flist::Flist(int xstep, int ystep, int FNinit):
         mXstep(xstep), mYstep(ystep), speed(15)
 {
-    
-    int i; 
     DP x,y,theta;
-    for(i=0;i<FNinit;i++){               
+    for(int i=0;i<FNinit;i++){               
         x = rand()%mXstep;
         y = rand()%mYstep;
         theta = (rand()%360)*M_PI/180;

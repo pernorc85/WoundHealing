@@ -196,8 +196,8 @@ void ECM::output_collagen(Flist& fibroblastList)
     //************output to picture*****************************************
     //Ö»Êä³öÒ»·ùÍ¼ 
     static int out_i = 0;
-    char file_name[14]="coll00000.BMP";
-    sprintf(file_name, "coll%05d.BMP", out_i++);
+    char file_name[21];
+    sprintf(file_name, "output/coll%05d.BMP", out_i++);
     BMP::output_BMP2(file_name, 14, vf, cellmatrix, ECM_xstep, ECM_ystep);
    
     return;

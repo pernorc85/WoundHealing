@@ -31,6 +31,7 @@ class ECM{
         Mat_DP fibronectin_density;
         
     friend class Flist;
+    friend class Elist;
 };
 
 

@@ -73,15 +73,9 @@ void Chemokine::diffusion(double D, double time_step){
 void Chemokine::output(){
      printf("output chemokine profile...\n");
      static int out_i = 0;
-     int jj;
-     char file_name[15] = "chem00000.BMP";
-     file_name[8] = 48+out_i%10;
-     file_name[7] = 48+out_i/10%10;
-     file_name[6] = 48+out_i/100%10;
-     file_name[5] = 48+out_i/1000%10;
-     BMP::Prepare_BMP_Format(ystep,xstep);
+     char file_name[21];
+     sprintf(file_name, "output/chem%5d.BMP", out_i++);
      BMP::output_BMP(file_name, 15, (*conc), xstep, ystep);
-     out_i++;
 }
 
 void Chemokine::output_chemoFile(){
