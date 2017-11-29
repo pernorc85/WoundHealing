@@ -11,7 +11,7 @@ void ECM::initiate(int wound_radius){
     DP theta;
     for(i=0;i<ECM_ystep/5;i++){//from bottom up
         for(j=0;j<ECM_xstep/5;j++){//from left to right
-            double dist_from_center = sqrt(pow(j*5-ECM_xstep/2, 2) + pow((i*5-ECM_ystep/2)/0.8, 2));
+            double dist_from_center = sqrt(pow(j*5-ECM_xstep/2, 2) + pow(i*5-ECM_ystep/2, 2));
             if(dist_from_center >= 450){
                 collagen_density[i][j] = 1; 
                 fibronectin_density[i][j] = 0;
@@ -24,7 +24,7 @@ void ECM::initiate(int wound_radius){
             else{
                 collagen_density[i][j] = 0;  
                 fibronectin_density[i][j] = 1; 
-            }    
+            }
         }
     }  
     
@@ -41,7 +41,7 @@ void ECM::initiate(int wound_radius){
 void ECM::collagen_orientation(Flist& fibroblastList)
 {
     int i,j;
-    int L = 10;
+    int L = 20;
     DP ftheta;
     DP omega, omegasum;
     DP kappa1 = 20, kappa2 = 5;
@@ -59,19 +59,30 @@ void ECM::collagen_orientation(Flist& fibroblastList)
                 omegasum += omega;
                 //be maticulous here-----------------------------------------------
                 if(omega != 0){
+                    DP f_taken = curPtr->theta;
+                    while(abs(f_taken - collagen[i][j]) > M_PI/2) {
+                        if(f_taken > collagen[i][j])
+                            f_taken -= M_PI;
+                        else
+                            f_taken += M_PI;
+                    }
+                    ftheta += omega * f_taken;
+                    /*   
+                    DP f_taken2 = 0; 
                     if(abs(curPtr->theta - collagen[i][j]) <= M_PI/2)//case 1&4; part of 2; part of 3; part of 6;
-                        ftheta += omega * curPtr->theta;
+                        f_taken2 = curPtr->theta;
                     else if(abs(curPtr->theta - collagen[i][j]) > M_PI/2 && abs(curPtr->theta - collagen [i][j]) <= M_PI){
                          if(curPtr->theta <= M_PI/2 && collagen[i][j] > M_PI/2 && collagen[i][j] <= M_PI)//part of 2
-                             ftheta += omega * (curPtr->theta + M_PI);
-                         else ftheta += omega * (curPtr->theta - M_PI);//part of 3; part of 6;
+                             f_taken2 = curPtr->theta + M_PI;
+                         else f_taken2 = curPtr->theta - M_PI;//part of 3; part of 6;
                     }
                     else if(curPtr->theta > M_PI*3/2 && collagen[i][j] < M_PI/2){//case 7
                          if(collagen[i][j]+ 2*M_PI -curPtr->theta < M_PI/2)
-                             ftheta += omega * (curPtr->theta - 2*M_PI);
-                         else ftheta += omega * (curPtr->theta - M_PI); 
+                             f_taken2 = curPtr->theta - 2*M_PI;
+                         else f_taken2 = curPtr->theta - M_PI; 
                     }
-                    else ftheta += omega * (curPtr->theta - M_PI);//case 5&8 
+                    else f_taken2 = curPtr->theta - M_PI;//case 5&8 
+                    */ 
                 }
                 //----------------------------------------------------------------- 
             } 

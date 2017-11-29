@@ -16,8 +16,8 @@ Flist::Flist(int xstep, int ystep, int FNinit):
         y = rand()%mYstep;
         theta = (rand()%360)*M_PI/180;
         
-        //if(pow(x-500,2)+pow(y-500,2) > 160000 || pow(x-500,2)+pow((y-500)/1,2) < 90000 ){ 
-        if(pow(x-mXstep/2,2)+pow((y-mYstep/2)/0.8,2) >= 122500){// || pow((x-500.0)/0.3,2)+pow(y-500.0,2) >=202500){                      
+        //if(pow(x-500,2)+pow(y-500,2) > 160000 || pow(x-500,2)+pow(y-500,2) < 90000 ){ 
+        if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= 350*350){// || pow((x-500.0)/0.3,2)+pow(y-500.0,2) >=202500){                      
     	    mFCells.push_back(Fibroblast(x,y, theta));    
         }       
     }          
@@ -66,7 +66,6 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
     }    
     
 //***********************guidance of collagen***********************************      
-    int i,j,k,x,y;
     int gridy,gridx;
     DP l_y,l_x;
    
@@ -80,27 +79,37 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
     DP collagen_temp,collagen_taken;
     DP collagen_sum = 0,l_sum = 0,collagen_avg=0;
     
-    for(j=max(gridy-2,0);j<=min(gridy+2,1000/10-1);j++){
-        for(k=max(gridx-2,0);k<min(gridx+2,1000/10-1);k++){
-            collagen_temp = collagen[j][k];
+    for(int j=max(gridy-2,0);j<=min(gridy+2,mYstep/10-1);j++){
+        for(int l=max(gridx-2,0);l<min(gridx+2,mXstep/10-1);l++){
+            collagen_taken = collagen[j][l];
             //be maticulous here-----------------------------------------------
+            while(abs(collagen_taken - curPtr->theta) > M_PI/2) {
+                if(collagen_taken > curPtr->theta) 
+                    collagen_taken -= M_PI;
+                else
+                    collagen_taken += M_PI;
+            }
+            /*
+            DP collagen_taken2; 
+            collagen_temp = collagen[j][l];
             if(abs(curPtr->theta - collagen_temp) <= M_PI/2)//case 1&4; part of 2; part of 3; part of 6;
-                collagen_taken = collagen_temp;
+                collagen_taken2 = collagen_temp;
             else if(abs(curPtr->theta - collagen_temp) > M_PI/2 && abs(curPtr->theta - collagen_temp) <= M_PI){
                 if(curPtr->theta <= M_PI/2 && collagen_temp > M_PI/2 && collagen_temp <= M_PI)//part of 2
-                     collagen_taken = collagen_temp - M_PI;
-                else collagen_taken = collagen_temp + M_PI;//part of 3; part of 6;
+                     collagen_taken2 = collagen_temp - M_PI;
+                else collagen_taken2 = collagen_temp + M_PI;//part of 3; part of 6;
             }
             else if(curPtr->theta > M_PI*3/2 && collagen_temp < M_PI/2){//case 7
                 if(collagen_temp+2*M_PI-curPtr->theta < M_PI/2)
-                    collagen_taken = collagen_temp + 2*M_PI;
-                else collagen_taken = collagen_temp + M_PI;  
+                    collagen_taken2 = collagen_temp + 2*M_PI;
+                else collagen_taken2 = collagen_temp + M_PI;  
             }
-            else collagen_taken = collagen_temp + M_PI;//case 5&8 
+            else collagen_taken2 = collagen_temp + M_PI;//case 5&8 
+            */
             //-----------------------------------------------------------------
             //calculate the weight---------------------------------------------
             l_y = (curPtr->yy-(j-2)*10) * (curPtr->yy-(j-1)*10) * (curPtr->yy-(j+1)*10) * (curPtr->yy-(j+2)*10)/20/10/10/20;
-            l_x = (curPtr->xx-(k-2)*10) * (curPtr->xx-(k-1)*10) * (curPtr->xx-(k+1)*10) * (curPtr->xx-(k+2)*10)/20/10/10/20;
+            l_x = (curPtr->xx-(l-2)*10) * (curPtr->xx-(l-1)*10) * (curPtr->xx-(l+1)*10) * (curPtr->xx-(l+2)*10)/20/10/10/20;
             l_sum += l_y*l_x;
             collagen_sum += collagen_taken*l_y*l_x;
         }
@@ -118,7 +127,12 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
     }
     else if(gradtheta == -1) curPtr->theta = (1 - rou1)*curPtr->theta + rou1 * collagen_avg;
 
-    curPtr->theta = (  (int)(curPtr->theta*180/M_PI+360)%360  )*M_PI/180; 
+    while(curPtr->theta > 2*M_PI) {
+        curPtr->theta -= 2*M_PI;
+    }
+    while(curPtr->theta < 0) {
+        curPtr->theta += 2*M_PI;
+    }
     curPtr->xx += speed_taken * tlength * cos(curPtr->theta);
     curPtr->yy += speed_taken * tlength * sin(curPtr->theta);
      

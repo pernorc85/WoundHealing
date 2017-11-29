@@ -165,8 +165,8 @@ void Elist::Ecell_move(EcellPtr cellPtr, DP gradx, DP grady, DP fdensity, DP cde
     int i,j;
     DP ydist, xdist, theta;
     if(branch == 1){
-        for(i=(int)cellPtr->yy-8;i<(int)cellPtr->yy+8;i++){
-            for(j=(int)cellPtr->xx-8;j<(int)cellPtr->xx+8;j++){
+        for(i=max(0, (int)cellPtr->yy-8); i<min(mYstep-1, (int)cellPtr->yy+8); i++){
+            for(j=max(0, (int)cellPtr->xx-8); j<min(mXstep-1, (int)cellPtr->xx+8); j++){
                 if((int)(cellmatrix[i][j])%10 == 1 || (int)(cellmatrix[i][j])%10 == 3){
                     ydist = i - (int)cellPtr->yy; xdist = j - (int)cellPtr->xx;
                     if(xdist > 0 && ydist >= 0)theta = atan(ydist/xdist);//1st phase
@@ -588,23 +588,21 @@ void feedback_from_oxygen_to_VEGF(Mat_DP& vasculature_density,Mat_DP& VEGF)
 void Elist::Ecell_newtip()
 {
     Mat_DP &cellmatrix = *cellmatrix_ptr;
-//===========find the section of vessel with a potential of new tips formation======================================
+    //find the section of vessel with a potential of new tips formation====================
     int j_range,l_range; 
     Mat_DP vesseltheta(mYstep,mXstep);
     for(int j=0;j<mYstep;j++){
         for(int l=0;l<mXstep;l++){
             vesseltheta[j][l] = -1;
             if(cellmatrix[j][l] == 1){                    
-//====================find the adjacent cellmatrix[j][l]==1========================
-//====================if only one line=============================================
-//====================use regression to find the direction of vessel===============
+                //find the adjacent cellmatrix[j][l]==1
+                //if only one line
+                //use regression to find the direction of vessel
                 Vec_DP xlist(800),ylist(800);
                 int count=0;
                 for(j_range=max(0,j-20);j_range<min(1000,j+20);j_range++){
                     for(l_range=max(0,l-20);l_range<min(1000,l+20);l_range++){
                         if((int)(cellmatrix[j_range][l_range])%10 ==1 || cellmatrix[j_range][l_range]==5){
-                            //cout<<"j_range="<<j_range<<" l_range="<<l_range<<endl;
-                            //cout<<"x="<<(double)j_range<<" y="<<(double)l_range<<endl;
                             ylist[count]=(double)j_range;
                             xlist[count]=(double)l_range;
                             count++;
@@ -627,13 +625,13 @@ void Elist::Ecell_newtip()
     
     
     
-//==============find the exact position for new tip formation======================    
+    //==============find the exact position for new tip formation======================    
     for(int j=0;j<mYstep;j++){
         for(int l=0;l<mXstep;l++){
             if(cellmatrix[j][l] == 5){                    
-//====================find the adjacent cellmatrix[j][l]==10========================
-//====================for a series of 10, find the middle one=======================
-//====================use as the location of new tip================================
+            //find the adjacent cellmatrix[j][l]==10
+            //for a series of 10, find the middle one=======================
+            //use as the location of new tip
                 int count_5=0, count_7=0;
                 for(j_range=max(0,j-20);j_range<min(mYstep, j+20);j_range++){
                     for(l_range=max(0,l-20);l_range<min(mYstep, l+20);l_range++){
@@ -656,13 +654,15 @@ void Elist::Ecell_newtip()
     
 
     
-//========build Elist===========================================================
+    //========build Elist===========================================================
     EcellPtr newPtr,prePtr,curPtr;
        
     for(int j=0;j<1000;j++){
         for(int l=0;l<1000;l++){
             if(cellmatrix[j][l] == 7){                                                   
-                double theta = (int)((vesseltheta[j][l] + M_PI/2)*180/M_PI)%360 *M_PI/180;
+                double theta = vesseltheta[j][l] + M_PI/2;
+                if (theta > 2 * M_PI) theta -= 2 * M_PI;
+                if (theta < 0) theta += 2 * M_PI;
                 newPtr = new Endocyte(l, j, theta, branch_id++, 24);       
                 newPtr->next = NULL;
 
