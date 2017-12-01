@@ -24,7 +24,7 @@ Flist::Flist(int xstep, int ystep, int FNinit):
     return;
 }
 
-void Flist::Flist_move(Chemokine& PDGF, ECM& extraCellularMatrix)
+void Flist::Flist_move(Chemokine& PDGF, ECM& extraCellularMatrix, DP time_step)
 {
     DP gradx, grady;
     DP fdensity, cdensity;
@@ -35,11 +35,11 @@ void Flist::Flist_move(Chemokine& PDGF, ECM& extraCellularMatrix)
         fdensity = extraCellularMatrix.fibronectin_density[(int)(it->yy/5)][(int)(it->xx/5)];
         cdensity = extraCellularMatrix.collagen_density[(int)(it->yy/5)][(int)(it->xx/5)];
         
-        Fcell_move(it, gradx, grady, fdensity, cdensity, extraCellularMatrix.collagen);                         
+        Fcell_move(it, gradx, grady, fdensity, cdensity, extraCellularMatrix.collagen, time_step);                         
     }
 }
 
-void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, Mat_DP& collagen)
+void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, Mat_DP& collagen, DP time_step)
 {
     DP rou1 = 0.5, rou2 = 0.3;
 //************************chemotaxis********************************************
@@ -51,8 +51,8 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
     curPtr->speed = speed_taken;
     
     DP grad=min(1.0,1000*sqrt(pow(gradx,2)+pow(grady,2)));
-    rou2=rou2*grad;
-    rou1=rou1*cdensity;
+    rou1=rou1*grad;
+    rou2=rou2*cdensity;
 //    cout<<"rou2="<<rou2<<endl;
     if(gradx != 0){
         if(gradx > 0 && grady >= 0)gradtheta = atan(grady/gradx);//1st phase 
@@ -118,14 +118,14 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
 
     if(gradtheta >= 0){
         if(gradtheta < M_PI/2 && curPtr->theta > 3/2*M_PI && curPtr->theta < 2*M_PI){
-            curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou1*collagen_avg + rou2*(gradtheta + 2*M_PI);
+            curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou2*collagen_avg + rou1*(gradtheta + 2*M_PI);
         }else if(gradtheta > 3/2*M_PI && gradtheta < 2*M_PI && curPtr->theta < M_PI/2){
-            curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou1*collagen_avg + rou2*(gradtheta - 2*M_PI);
+            curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou2*collagen_avg + rou1*(gradtheta - 2*M_PI);
         }else {
-            curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou1*collagen_avg + rou2*gradtheta;
+            curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou2*collagen_avg + rou1*gradtheta;
         }
     }
-    else if(gradtheta == -1) curPtr->theta = (1 - rou1)*curPtr->theta + rou1 * collagen_avg;
+    else if(gradtheta == -1) curPtr->theta = (1 - rou2)*curPtr->theta + rou2 * collagen_avg;
 
     while(curPtr->theta > 2*M_PI) {
         curPtr->theta -= 2*M_PI;
@@ -133,8 +133,8 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
     while(curPtr->theta < 0) {
         curPtr->theta += 2*M_PI;
     }
-    curPtr->xx += speed_taken * tlength * cos(curPtr->theta);
-    curPtr->yy += speed_taken * tlength * sin(curPtr->theta);
+    curPtr->xx += speed_taken * time_step * cos(curPtr->theta);
+    curPtr->yy += speed_taken * time_step * sin(curPtr->theta);
      
     //(int)ÊÇÈ¡ÕûÊý²¿·Ö£¬²»ÊÇËÄÉáÎåÈë 
     if(curPtr->xx < 0)curPtr->xx = 0;

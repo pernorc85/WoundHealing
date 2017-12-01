@@ -38,12 +38,12 @@ public:
         delete vas_density_ptr;
     }
 
-    void buildElist(unsigned int ENinit, EdgePtr* edgeList);
+    void buildElist(unsigned int ENinit, double wound_radius, EdgePtr* edgeList);
     void Elist_move(Mat_DP &gradx_VEGF, Mat_DP &grady_VEGF, ECM &extraCellularMatrix, DP time_step); 
-    void Ecell_move(EcellPtr cellPtr, DP gradx_VEGF, DP grady_VEGF, DP fdensity, DP cdensity, DP collagen, DP time_step);
+    void Ecell_move(EcellPtr cellPtr, DP gradx_VEGF, DP grady_VEGF, DP cdensity, DP collagen, DP time_step);
     void Elist_branch(EdgePtr* edgeList, NodePtr* nodeList, ECM& extraCellularMatrix, Mat_DP& gradx_VEGF, Mat_DP& grady_VEGF, DP time_step);
     void Elist_looping(EdgePtr* edgeList, NodePtr* nodeList);
-    void Ecell_newtip();
+    void Ecell_newtip(Mat_DP &activator, Mat_DP &inhibitor);
 
     void calculate_for_oxygen(Mat_DP& vas_density);
     

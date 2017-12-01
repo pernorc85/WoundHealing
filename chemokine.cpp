@@ -5,10 +5,10 @@
 #include "BMP.h"
 
 using namespace std;
-extern int ADI(DP, DP, Mat_DP&);
+extern int ADI(DP, Mat_DP&, DP, DP);
 
-Chemokine::Chemokine(int nx_, int ny_, double dx_, double dt_):
-    xstep(nx_),ystep(ny_),dx(dx_),dt(dt_){
+Chemokine::Chemokine(int nx_, int ny_, double dx_, double D, double decay_rate_):
+    xstep(nx_),ystep(ny_),dx(dx_),diffusion_coeff(D),decay_rate(decay_rate_){
     conc = new Mat_DP(ystep,xstep);
     gradx = NULL;
     grady = NULL;
@@ -20,14 +20,15 @@ Chemokine::~Chemokine(){
     if(grady != NULL)delete grady;
 }
 
-void Chemokine::initialize(double a/*major semi_axis*/, double b/*minor semi_axis*/){//if radius = 350
+void Chemokine::initialize(double a/*major semi_axis*/, double b/*minor semi_axis*/){
     int i,j;
+    double c = sqrt(a*a - b*b);
     for(i=0;i<ystep;i++){//from bottom up
         for(j=0;j<xstep;j++){//from left to right
-            if(pow(j-xstep/2,2)+pow((i-ystep/2)/0.8,2) >= (a + 100)*(a + 100) )(*conc)[i][j] = 0;//450^2 
-            else if(pow(j-xstep/2,2)+pow((i-ystep/2)/0.8,2) < (a+100)*(a+100) && 
-                    pow(j-xstep/2,2)+pow((i-ystep/2)/0.8,2) > (a-100)*(a-100) ){//450^2--250^2     
-                (*conc)[i][j] = -sin( (sqrt(pow(j-xstep/2,2)+pow((i-ystep/2)/0.8,2))-a)/100*M_PI/2 )*0.5 + 0.5;
+            double dist_from_focus = sqrt(pow(j-xstep/2,2) + pow(a/b*(i-ystep/2), 2));
+            if(dist_from_focus > c + 50 )(*conc)[i][j] = 0; 
+            else if(dist_from_focus < a + 50 && dist_from_focus > a - 50 ){     
+                (*conc)[i][j] = -sin( (dist_from_focus - a)/50*M_PI/2 )*0.5 + 0.5;
             } 
             else (*conc)[i][j] = 1;  
         }
@@ -39,16 +40,41 @@ void Chemokine::initialize(double radius){//if radius = 350
     int i,j;
     for(i=0;i<ystep;i++){//from bottom up
         for(j=0;j<xstep;j++){//from left to right
-            double dist_from_center = sqrt(pow(j-xstep/2,2) + pow((i-ystep/2)/0.8, 2));
-            if(dist_from_center >= radius + 100 ){
-		(*conc)[i][j] = 0;//450^2 
-            } else if(dist_from_center < radius+100 && dist_from_center > radius-100 ){     
-                (*conc)[i][j] = -sin( (dist_from_center-radius)/100*M_PI/2 )*0.5 + 0.5;
+            double dist_from_center = sqrt(pow(j-xstep/2,2) + pow(i-ystep/2, 2));
+            if(dist_from_center >= radius + 25 ){
+		(*conc)[i][j] = 0; 
+            } else if(dist_from_center < radius+25 && dist_from_center > radius-75 ){     
+                (*conc)[i][j] = -sin( (dist_from_center-radius+25)/50*M_PI/2 )*0.5 + 0.5;
             } else {
 		(*conc)[i][j] = 1;  
             }
         }
     }
+    isGradientCalculated = false;
+}
+
+void Chemokine::initialize2(){
+    int i, j;
+    for(i=0;i<xstep;i++)
+        for(j=0;j<ystep;j++)(*conc)[i][j]=0;
+    for(i=xstep/2-490;i<xstep/2+490;i++)
+        for(j=ystep/2-490;j<ystep/2+490;j++)(*conc)[i][j] = 1;
+    for(i=xstep/2-480;i<xstep/2+480;i++)
+        for(j=ystep/2-480;j<ystep/2+480;j++)(*conc)[i][j] = 1.3;
+    for(i=xstep/2-460;i<xstep/2+460;i++)
+        for(j=ystep/2-460;j<xstep/2+460;j++)(*conc)[i][j] = 1.5;
+    for(i=xstep/2-430;i<xstep/2+430;i++)
+        for(j=ystep/2-430;j<ystep/2+430;j++)(*conc)[i][j] = 1.7;
+    for(i=xstep/2-400;i<xstep/2+400;i++)
+        for(j=ystep/2-400;j<ystep/2+400;j++)(*conc)[i][j] = 2;
+    for(i=xstep/2-350;i<xstep/2+350;i++)
+        for(j=ystep/2-350;j<ystep/2+350;j++)(*conc)[i][j] = 2.3;
+    for(i=xstep/2-300;i<xstep/2+300;i++)
+        for(j=ystep/2-300;j<ystep/2+300;j++)(*conc)[i][j] = 2.5;
+    for(i=xstep/2-200;i<xstep/2+200;i++)
+        for(j=ystep/2-200;j<xstep/2+200;j++)(*conc)[i][j] = 3;
+    for(i=xstep/2-100;i<xstep/2+100;i++)
+        for(j=ystep/2-100;j<ystep/2+100;j++)(*conc)[i][j] = 4;
     isGradientCalculated = false;
 }
 
@@ -66,15 +92,14 @@ void Chemokine::calculate_gradient(){
     isGradientCalculated = true;
 }
 
-void Chemokine::diffusion(double D, double time_step){
-     ADI(time_step, D, *conc); 
+void Chemokine::diffusion(double time_step){
+     ADI(time_step, *conc, diffusion_coeff, decay_rate); 
 }
 
-void Chemokine::output(){
+void Chemokine::output(int out_i, std::string GF_name){
      printf("output chemokine profile...\n");
-     static int out_i = 0;
      char file_name[21];
-     sprintf(file_name, "output/chem%5d.BMP", out_i++);
+     sprintf(file_name, "output/%s%5d.BMP", GF_name.c_str(), out_i);
      BMP::output_BMP(file_name, 15, (*conc), xstep, ystep);
 }
 

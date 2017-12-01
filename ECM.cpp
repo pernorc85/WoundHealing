@@ -15,13 +15,11 @@ void ECM::initiate(int wound_radius){
             if(dist_from_center >= 450){
                 collagen_density[i][j] = 1; 
                 fibronectin_density[i][j] = 0;
-            }
-            else if(dist_from_center < 450 && 
+            } else if(dist_from_center < 450 && 
                     dist_from_center > 350 ){      
                 collagen_density[i][j] = sin( (dist_from_center-400)/50*M_PI/2 )*0.5 + 0.5;
                 fibronectin_density[i][j] = 1 - collagen_density[i][j];
-            } 
-            else{
+            } else{
                 collagen_density[i][j] = 0;  
                 fibronectin_density[i][j] = 1; 
             }
@@ -38,10 +36,10 @@ void ECM::initiate(int wound_radius){
 }
 
 
-void ECM::collagen_orientation(Flist& fibroblastList)
+void ECM::collagen_orientation(Flist& fibroblastList, double time_step)
 {
     int i,j;
-    int L = 20;
+    int L = 15;
     DP ftheta;
     DP omega, omegasum;
     DP kappa1 = 20, kappa2 = 5;
@@ -89,7 +87,7 @@ void ECM::collagen_orientation(Flist& fibroblastList)
                
             if(omegasum != 0){                
                 ftheta /= omegasum;  
-                DP increase = tlength*kappa1*abs(omegasum) * sin(ftheta-collagen[i][j]);
+                DP increase = time_step*kappa1*abs(omegasum) * sin(ftheta-collagen[i][j]);
                 collagen[i][j] += increase; 
                 while(collagen[i][j] >= M_PI) {
                     collagen[i][j] -= M_PI;
@@ -116,10 +114,10 @@ void ECM::collagen_orientation(Flist& fibroblastList)
 //            if(tensiontheta != -1 && sqrt(pow(td_x,2)+pow(td_y,2))>200){
 //                DP increase; 
 //                if(abs(tensiontheta-collagen[i][j])<=PI/2)
-//                    increase = tlength*kappa2*sqrt(pow(td_x/200,2)+pow(td_y/200,2))*sin(tensiontheta-collagen[i][j]);
+//                    increase = time_size*kappa2*sqrt(pow(td_x/200,2)+pow(td_y/200,2))*sin(tensiontheta-collagen[i][j]);
 //                else if(tensiontheta>PI/2)
-//                    increase = tlength*kappa2*sqrt(pow(td_x/200,2)+pow(td_y/200,2))*sin(tensiontheta-PI-collagen[i][j]);
-//                else increase = tlength*kappa2*sqrt(pow(td_x/200,2)+pow(td_y/200,2))*sin(tensiontheta+PI-collagen[i][j]);
+//                    increase = time_size*kappa2*sqrt(pow(td_x/200,2)+pow(td_y/200,2))*sin(tensiontheta-PI-collagen[i][j]);
+//                else increase = time_size*kappa2*sqrt(pow(td_x/200,2)+pow(td_y/200,2))*sin(tensiontheta+PI-collagen[i][j]);
 //
 //                collagen[i][j] += increase;
 //                cout <<"increase="<<increase<<endl;
@@ -138,8 +136,8 @@ void ECM::collagen_orientation(Flist& fibroblastList)
                 else omega = 0;
                 omegasum += omega;
             } 
-            collagen_density[i][j]    +=  tlength * (pc - dc * collagen_density[i][j]) * omegasum;   
-            fibronectin_density[i][j] += -tlength * df * fibronectin_density[i][j] * omegasum;          
+            collagen_density[i][j]    +=  time_step * (pc - dc * collagen_density[i][j]) * omegasum;   
+            fibronectin_density[i][j] += -time_step * df * fibronectin_density[i][j] * omegasum;          
         }
     }
 }

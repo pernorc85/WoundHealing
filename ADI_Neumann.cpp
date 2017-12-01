@@ -10,11 +10,7 @@
 using namespace std;  
  
  
-char  file_name[15]="self00000.BMP";
 const DP dx = 1;//Unit: um
-const DP dy = 1;//Unit: um
-const DP dt = 0.01;//Unit: hr
-
 
 void NR::tridag(Vec_I_DP &a, Vec_I_DP &b, Vec_I_DP &c, Vec_I_DP &r, Vec_O_DP &u)
 {     
@@ -40,20 +36,15 @@ void NR::tridag(Vec_I_DP &a, Vec_I_DP &b, Vec_I_DP &c, Vec_I_DP &r, Vec_O_DP &u)
 
 }
  
-int ADI(DP tlength, DP D, Mat_DP& PDGF)
-{
-    FILE* dataFile;
+int ADI(DP time_step, Mat_DP& GF, DP D, DP decay_rate){
     int j,l,k;
-    static int out_i = 0;
     
-    DP alpha = D/2*dt/pow(dx,2);
+    DP alpha = D/2*time_step/pow(dx,2);
     
-    int xstep, ystep, tstep;    
-    ystep = PDGF.nrows();//?????????????
-    xstep = PDGF.ncols();//?????????????
-    tstep = (int)(tlength/dt);
+    int xstep, ystep, nSteps = 1;    
+    ystep = GF.nrows();//?????????????
+    xstep = GF.ncols();//?????????????
     //for (k=0;k<n;k++) cout << setw(12) << u[k];
-    cout << "xstep" << xstep << "ystep" << ystep << "tstep" << tstep << "D" << D << endl;
     
     Mat_DP u(ystep,xstep),uhalf(ystep,xstep),unext(ystep,xstep);
     Vec_DP uhalftemp(xstep),unexttemp(xstep);
@@ -75,8 +66,8 @@ int ADI(DP tlength, DP D, Mat_DP& PDGF)
 //*******************Neumann boundary condition*********************************
 
 //**********Initial condition**************************
-    u = PDGF;        
-    for(k=0;k<tstep;k++){
+    u = GF;        
+    for(k=0;k<nSteps;k++){
         //***********µÚ¶þ¸ö°ë²½*************************************************
         //******
         //@@@@@@
@@ -94,6 +85,7 @@ int ADI(DP tlength, DP D, Mat_DP& PDGF)
             NR::tridag(subdx,diagx,superdx,rhsx,uhalftemp);
             for(l=0;l<xstep;l++)uhalf[j][l] = uhalftemp[l];
         }
+        cout << "ok1" << endl;
        
         //***********µÚÒ»¸ö°ë²½*************************************************
         //*@****
@@ -112,10 +104,11 @@ int ADI(DP tlength, DP D, Mat_DP& PDGF)
             NR::tridag(subdy,diagy,superdy,rhsy,unexttemp);
             for(j=0;j<ystep;j++)unext[j][l] = unexttemp[j];            
         }
+        cout << "ok2" << endl;
         u = unext;
     }
 
             
-    PDGF = u;                    
+    GF = u;                    
     return EXIT_SUCCESS;
 }

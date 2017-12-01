@@ -8,23 +8,25 @@
 
 class Chemokine{
 public:
-    Chemokine(int nx_, int ny_, double dx_, double dt_);
+    Chemokine(int nx_, int ny_, double dx_, double D, double decay_rate_);
     ~Chemokine();
     
     void initialize(double wound_radius);
     void initialize(double wound_a, double wound_b);
+    void initialize2();
     void calculate_gradient();
-    void diffusion(double D, double tlength);
-    void output();
+    void diffusion(double tlength);
+    void output(int out_i, string GF_name);
     void output_chemoFile();
     
     bool isGradientCalculated;
-
+   
 protected:
     int xstep, ystep;
     double dx;
-    double dt;
     Mat_DP *conc;
+    double diffusion_coeff;
+    double decay_rate;
     
 public:
     Mat_DP *gradx;

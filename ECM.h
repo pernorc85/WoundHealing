@@ -8,8 +8,6 @@
 #include "nr.h"
 using namespace std;
 
-const DP tlength = 0.15; //unit is hr
-
 class Flist;
 
 class ECM{
@@ -20,7 +18,7 @@ class ECM{
 		fibronectin_density(ystep/5,xstep/5)
         {};
         void initiate(int wound_radius);
-        void collagen_orientation(Flist& fibroblastList);
+        void collagen_orientation(Flist& fibroblastList, double time_step);
         void output_collagen(Flist& fibroblastList);
 
     protected:
