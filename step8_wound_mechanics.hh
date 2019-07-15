@@ -18,10 +18,11 @@
 #include <fstream>
 #include <iostream>  
 #include "nr.h"
+#include "BMP.h"
 
 using namespace dealii;
-const int xstep = 1000;
-const int ystep = 1000;
+extern const int xstep;
+extern const int ystep;
 
 extern Mat_DP *fibroblast_density_ptr;
 extern Mat_DP *speedfield_ptr;
@@ -34,6 +35,11 @@ void matrix_inverse(Mat_DP& F_inverse,Mat_DP F);
 double fb_density(double y, double x){
     return (*fibroblast_density_ptr)[(int)y][(int)x];
 }
+bool isOnWoundEdge(int x, int y) {
+    //return abs(abs(x-500.0)-500.0)<1.5 || abs(abs(y-500.0)-500.0) < 1.5;
+    //return abs(sqrt(pow(x-500.0,2)+pow(y-500.0,2)) - 400.0) < 1.5;
+    return abs(sqrt(pow(x-500.0,2)+pow((y-500.0)/0.8,2)) - 400.0) < 1.5;
+}
 
 template <int dim>
 RightHandSide<dim>::RightHandSide ()
@@ -45,8 +51,7 @@ RightHandSide<dim>::RightHandSide ()
 template <int dim>
 inline
 void RightHandSide<dim>::vector_value (const Point<dim> &p,
-				       Vector<double>   &values) const 
-{
+				       Vector<double>   &values) const {
   Assert (values.size() == dim, 
 	  ExcDimensionMismatch (values.size(), dim));
   Assert (dim >= 2, ExcNotImplemented());
@@ -79,9 +84,6 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
 }
 
 
-
-
-
 template <int dim>
 void RightHandSide<dim>::vector_value_list (const std::vector<Point<dim> > &points,
 					    std::vector<Vector<double> >   &value_list) const 
@@ -105,7 +107,7 @@ Direction<dim>::Direction ()
 {}
 
 template <int dim>
-Direction<dim>::Direction (Mat_DP& collagen_)
+Direction<dim>::Direction (const Mat_DP& collagen_)
         :collagen(collagen_),
          Function<dim> (dim)
 {}
@@ -150,7 +152,7 @@ Cdensity<dim>::Cdensity ()
 {}
 
 template <int dim>
-Cdensity<dim>::Cdensity (Mat_DP& collagen_density_)
+Cdensity<dim>::Cdensity (const Mat_DP& collagen_density_)
         :collagen_density(collagen_density_),
          Function<dim> (dim)
 {}
@@ -259,6 +261,9 @@ void ElasticProblem<dim>::setup_system ()
   solution.reinit (dof_handler.n_dofs());
   solution_pre.reinit (dof_handler.n_dofs());
   system_rhs.reinit (dof_handler.n_dofs());
+
+  tissue_displacement_x = Mat_DP(1000, 1000);
+  tissue_displacement_y = Mat_DP(1000, 1000);
 }
 
 
@@ -345,7 +350,7 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
 				   // <code>n_q_points</code> elements, each of
 				   // which is a <code>Vector@<double@></code>
 				   // with <code>dim</code> elements.
-  RightHandSide<dim>      right_hand_side();
+  RightHandSide<dim>      right_hand_side;
   std::vector<Vector<double> > rhs_values (n_q_points, Vector<double>(dim));
 
   Direction<dim>      direction(collagen);
@@ -381,8 +386,8 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
       mu.value_list     (fe_values.get_quadrature_points(), mu_values);
 
       right_hand_side.vector_value_list (fe_values.get_quadrature_points(), rhs_values);
-      direction.vector_value_list (fe_values.get_quadrature_points(), dir_values);
       cdensity.vector_value_list (fe_values.get_quadrature_points(), cde_values); 
+      direction.vector_value_list (fe_values.get_quadrature_points(), dir_values);
 
 				       // Then assemble the entries of
 				       // the local stiffness matrix
@@ -784,6 +789,7 @@ void ElasticProblem<dim>::refine_grid ()
 }
 
 
+
 //{ElasticProblem::output_results}
 
 				 // The output happens mostly as has
@@ -796,7 +802,7 @@ void ElasticProblem<dim>::refine_grid ()
 				 // each component of the solution
 				 // vector a different name.
 template <int dim>
-void ElasticProblem<dim>::output_results (const unsigned int cycle) const
+void ElasticProblem<dim>::output_results (const unsigned int cycle) 
 {
   char filename[16];
   sprintf(filename, "solution-%3d.vtk", cycle);
@@ -839,28 +845,24 @@ void ElasticProblem<dim>::output_results (const unsigned int cycle) const
   data_out.build_patches ();
   data_out.write_vtk (output);
 
-  Mat_DP tissue_displacement_x(1000,1000);
-  Mat_DP tissue_displacement_y(1000,1000);
   Point<dim> point; 
     //std::vector<Vector<double> > value_list (1000, Vector<double>(dim));
   Vector<double> value;
   for(int i=0;i<ystep;i++){            
       for(int j=0;j<xstep;j++){ 
-            point(0)=(double)j; 
-            point(1)=(double)i;
-            //if(abs(abs(j-500.0)-500.0)<1.5 || abs(abs(i-500.0)-500.0)<1.5){ 
-            if(abs(sqrt(pow(j-500.0,2)+pow((i-500.0)/0.8,2)) - 400.0)<1.5){
-                VectorTools::point_value(dof_handler, solution, point,value);
-            //ºÜÏÔÈ»£¬ÕâÀïµÄdof_handlerÀàÐÍ²»ÊÇ DoFHandler< dim, spacedim >,µ«Ò²¿ÉÒÔÕâÑùÓÃ
-            //solution ÊÇ vector-valued FE function
-            //ËùÒÔÕâÑùÌáÈ¡½á¹ûÊÇÍêÈ«ÕýÈ·µÄ 
+          point(0)=(double)j; 
+          point(1)=(double)i;
+          if(isOnWoundEdge(j, i)) {
+                VectorTools::point_value(dof_handler, solution, point, value);
+                //ºÜÏÔÈ»£¬ÕâÀïµÄdof_handlerÀàÐÍ²»ÊÇ DoFHandler< dim, spacedim >,µ«Ò²¿ÉÒÔÕâÑùÓÃ
+                //solution ÊÇ vector-valued FE function
+                //ËùÒÔÕâÑùÌáÈ¡½á¹ûÊÇÍêÈ«ÕýÈ·µÄ 
                 tissue_displacement_x[i][j] = value(0);
                 tissue_displacement_y[i][j] = value(1);
                 //cout<<"value(0)"<<value(0)<<"value(1)"<<value(1)<<endl; 
-            }
+          }
       }  
   }
-
 
 /*
 template<int dim, class InVector , int spacedim> 
@@ -907,8 +909,7 @@ void ElasticProblem<dim>::run_until_converge (const Mat_DP& collagen, const Mat_
 }
 
 template <int dim>
-void ElasticProblem<dim>::run (const Mat_DP& collagen, const Mat_DP& collagen_density, const Mat_DP& fibroblast_density) 
-{
+void ElasticProblem<dim>::run(const Mat_DP& collagen, const Mat_DP& collagen_density, const Mat_DP& fibroblast_density) {
     static int cycle=0;
     if(cycle == 0){
         GridGenerator::hyper_cube (triangulation, 0, 1000);
@@ -938,7 +939,35 @@ void ElasticProblem<dim>::run (const Mat_DP& collagen, const Mat_DP& collagen_de
     cycle++;
 }
 
+template <int dim>
+void ElasticProblem<dim>::output_woundcontour(){
+    Mat_DP woundcontour(ystep,xstep);
+    DP tdx,tdy;
+    for(size_t i=0; i<ystep; i++){
+        for(size_t j=0; j<xstep; j++){
+            woundcontour[i][j] = 0;
+        }
+    }
 
+    for(size_t i=0; i<ystep; i++){
+        for(size_t j=0; j<xstep; j++){
+            if( isOnWoundEdge(j,i) ){
+                tdx = tissue_displacement_x[i][j];
+                tdy = tissue_displacement_y[i][j];
+                if(i+(int)tdy>=0 && i+(int)tdy<=999 && j+(int)tdx>=0 && j+(int)tdy<=999){
+                    woundcontour[i+(int)tdy][j+(int)tdx] = 1;
+                }
+            }
+        }
+    }
+
+    static int out_i = 0;
+    char file_name[21];
+    sprintf(file_name, "output/cont%05d.BMP", out_i++);
+    BMP::output_BMP(file_name, 14, woundcontour, xstep, ystep);
+
+    return;
+}
 
 //   EquationData::Pressure<dim> pres (t_0);
 //   VectorTools::interpolate (dof_handler_pressure, pres, pres_n_minus_1);
@@ -946,8 +975,7 @@ void ElasticProblem<dim>::run (const Mat_DP& collagen, const Mat_DP& collagen_de
 //   VectorTools::interpolate (dof_handler_pressure, pres, pres_n);
 
 //calculate the elasticity coefficients
-void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A)
-{   
+void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A) {   
     
     //from tissue displacement, get tissue deformation gradients in two different directions
 
@@ -1150,3 +1178,4 @@ void matrix_inverse(Mat_DP& F_inverse,Mat_DP F)
 
      return;
 }
+

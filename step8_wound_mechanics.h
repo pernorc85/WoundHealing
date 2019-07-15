@@ -10,34 +10,36 @@
 //             None.
 
 //{Include files}
+#pragma once
+#ifndef _STEP8_WOUND_MECHANICS_
+#define _STPE8_WOUND_MECHANICS_
 #include <deal.II/base/function.h>
-#include <base/logstream.h>
-#include <lac/vector.h>
-#include <lac/full_matrix.h>
-#include <lac/sparse_matrix.h>
-#include <lac/constraint_matrix.h>
-#include <grid/tria.h>
-#include <grid/grid_generator.h>
-#include <grid/tria_accessor.h>
-#include <grid/tria_iterator.h>
-#include <grid/tria_boundary_lib.h>
-#include <dofs/dof_handler.h>
-#include <dofs/dof_accessor.h>
-#include <dofs/dof_tools.h>
-#include <fe/fe_values.h>
-#include <numerics/vector_tools.h>
-#include <numerics/matrix_tools.h>
-#include <numerics/data_out.h>
-#include <numerics/error_estimator.h>
+#include <deal.II/base/logstream.h>
+#include <deal.II/lac/vector.h>
+#include <deal.II/lac/full_matrix.h>
+#include <deal.II/lac/sparse_matrix.h>
+#include <deal.II/lac/constraint_matrix.h>
+#include <deal.II/grid/tria.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/tria_accessor.h>
+#include <deal.II/grid/tria_iterator.h>
+#include <deal.II/grid/tria_boundary_lib.h>
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/dofs/dof_accessor.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/numerics/data_out.h>
+#include <deal.II/numerics/error_estimator.h>
 
                  //File for vector-valued finite elements.
-#include <fe/fe_system.h>
+#include <deal.II/fe/fe_system.h>
 				 // We will compose the vector-valued
 				 // finite elements from regular Q1
 				 // elements which can be found here,
 				 // as usual:
-#include <fe/fe_q.h>
-
+#include <deal.II/fe/fe_q.h>
 				 // This again is C++:
 #include <fstream>
 #include <iostream>  
@@ -73,20 +75,23 @@ using namespace dealii;
 				 // below in the constructor of this
 				 // class.
 template <int dim>
-class ElasticProblem 
-{
-  public:
+class ElasticProblem {
+public:
     ElasticProblem ();
     ~ElasticProblem ();
     void run (const Mat_DP&, const Mat_DP&, const Mat_DP&);
     void run_until_converge(const Mat_DP&, const Mat_DP&, const Mat_DP&);
-    
-  private:
+    void output_woundcontour();
+public:
+    Mat_DP tissue_displacement_x;
+    Mat_DP tissue_displacement_y;    
+
+private:
     void setup_system ();
     void assemble_system (const Mat_DP&, const Mat_DP&, const Mat_DP&);
     void solve ();
     void refine_grid ();
-    void output_results (const unsigned int cycle) const;
+    void output_results (const unsigned int cycle);
 
     Triangulation<dim>   triangulation;
     DoFHandler<dim>      dof_handler;
@@ -136,7 +141,7 @@ class ElasticProblem
 template <int dim>
 class RightHandSide :  public Function<dim> 
 {
-  public:
+public:
     RightHandSide ();
     
     virtual void vector_value (const Point<dim> &p,
@@ -151,16 +156,16 @@ class RightHandSide :  public Function<dim>
 template <int dim>
 class Direction :  public Function<dim> 
 {
-  public:
+public:
     Direction ();
-    Direction (Mat_DP& collagen);
+    Direction (const Mat_DP& collagen);
     
     virtual void vector_value (const Point<dim> &p,
 			       Vector<double>   &values) const;
 
     virtual void vector_value_list (const std::vector<Point<dim> > &points,
 				    std::vector<Vector<double> >   &value_list) const;
-  protected:
+protected:
     Mat_DP collagen;  
 };
 
@@ -171,9 +176,9 @@ class Direction :  public Function<dim>
 template <int dim>
 class Cdensity :  public Function<dim> 
 {
-  public:
+public:
     Cdensity ();
-    Cdensity (Mat_DP& collagen_density_);
+    Cdensity (const Mat_DP& collagen_density_);
     
     virtual void vector_value (const Point<dim> &p,
 			       Vector<double>   &values) const;
@@ -181,8 +186,8 @@ class Cdensity :  public Function<dim>
     virtual void vector_value_list (const std::vector<Point<dim> > &points,
 				    std::vector<Vector<double> >   &value_list) const;
 				    
-  protected:
+protected:
     Mat_DP collagen_density;
 };
 
-
+#endif

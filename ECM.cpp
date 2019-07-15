@@ -38,9 +38,9 @@ void ECM::initiate(int wound_radius){
     } 
 }
 
-void ECM::collagen_orientation(Flist& fList, double time_step) {
+void ECM::collagen_orientation(Flist& fList, const Mat_DP& tdx, const Mat_DP& tdy, double time_step) {
     collagen_orientation_with_fibroblast(fList, time_step);
-    collagen_orientation_under_tension(time_step);
+    collagen_orientation_under_tension(tdx, tdy, time_step);
     return;
 }
 
@@ -124,10 +124,16 @@ void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double tim
 }
 
 /*
+ * F = U*R;
  * Range of return value is [0, PI]
  */
 double calculate_tensiontheta(Mat_DP &F){
     double tensiontheta;
+    /*
+    Mat_DP I(2,2);
+    I[0][0] = 1.0; I[0][1] = 0.0;
+    I[1][0] = 0.0; I[1][1] = 1.0;
+    Mat_DP G = (transpose(F) * F - I)/2.;
     if(td_x != 0){
         if(td_x > 0 && td_y >= 0)tensiontheta = atan(td_y/td_x);//1st phase 
         else if(td_x < 0 && td_y >= 0)tensiontheta = M_PI + atan(td_y/td_x);//2nd phase
@@ -137,22 +143,26 @@ double calculate_tensiontheta(Mat_DP &F){
         if(td_y > 0)tensiontheta =  M_PI/2;
         else if(td_y < 0)tensiontheta = M_PI/2;
         else tensiontheta = -1;
-    }                
+    } 
+    */               
     return 0.0;
 }
 
 double calculate_stretch(Mat_DP &F){
-
-    return 0.0;
+    Mat_DP I(2,2);
+    I[0][0] = 1.0; I[0][1] = 0.0;
+    I[1][0] = 0.0; I[1][1] = 1.0;
+    //Mat_DP G = (transpose(F) * F - I)/2.;
+    return 1.0;
 }
 
 /**
- * Collagen fibers re-orient in response to tissue tension,
- * but not just along tension line.
+ * Collagen fibers re-orient in response to tissue tension, but not simply along tension line.
  * In unconstraint tissue, tissue will shrink in the direction perpendicular to tension, and collagen fibers will align along tension.
  * In constraint tissue, tissue cannot shrink, and collagen fiber will align perpendicular to tension to perform "strain avlidance". 
  */
-void ECM::collagen_orientation_under_tension(double time_step){
+void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x,
+                                             const Mat_DP& tissue_displacement_y, double time_step){
     DP kappa1 = 5, kappa2 = 5;
     for(size_t i=0; i<ECM_ystep/10; i++){//from bottom up
         for(size_t j=0; j<ECM_xstep/10; j++){//from left to right
