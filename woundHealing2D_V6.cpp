@@ -25,7 +25,7 @@
 #include "angiogenesis.h"
 #ifdef MECHANICS
 #include "step8_wound_mechanics.h"
-#include "step8_wound_mechanics.hh"
+#include "step8_wound_mechanics.cc"
 #endif
 #include "nr.h"
 

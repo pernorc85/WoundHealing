@@ -93,6 +93,8 @@ private:
     void refine_grid ();
     void output_results (const unsigned int cycle);
 
+    void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A);
+
     Triangulation<dim>   triangulation;
     DoFHandler<dim>      dof_handler;
 

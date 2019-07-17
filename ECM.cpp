@@ -167,10 +167,10 @@ void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x
     for(size_t i=0; i<ECM_ystep/10; i++){//from bottom up
         for(size_t j=0; j<ECM_xstep/10; j++){//from left to right
             Mat_DP F(2,2); //deformation gradient
-            F[0][0] = tissue_displacement_x[i*10+1][j*10] - tissue_displacement_x[i*10-1][j*10];
-            F[0][1] = tissue_displacement_x[i*10][j*10+1] - tissue_displacement_x[i*10][j*10-1];
-            F[1][0] = tissue_displacement_y[i*10+1][j*10] - tissue_displacement_y[i*10-1][j*10];
-            F[1][1] = tissue_displacement_y[i*10][j*10+1] - tissue_displacement_y[i*10][j*10-1];
+            F[0][0] = tissue_displacement_x[i*10][j*10+1] - tissue_displacement_x[i*10][j*10-1];
+            F[0][1] = tissue_displacement_x[i*10+1][j*10] - tissue_displacement_x[i*10-1][j*10];
+            F[1][0] = tissue_displacement_y[i*10][j*10+1] - tissue_displacement_y[i*10][j*10-1];
+            F[1][1] = tissue_displacement_y[i*10+1][j*10] - tissue_displacement_y[i*10-1][j*10];
             double tensiontheta = calculate_tensiontheta(F);
             //tissue is stretched if stretch > 1.0, compressed if stretch is < 1.0
             //reorientation only happens when stretch > 1.2

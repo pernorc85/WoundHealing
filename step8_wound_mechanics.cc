@@ -10,6 +10,8 @@
 //             None.
 
 //{Include files}
+#ifndef _STEP8_CC_
+#define _STEP8_CC_
 #include "step8_wound_mechanics.h"
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/precondition.h>
@@ -19,6 +21,7 @@
 #include <iostream>  
 #include "nr.h"
 #include "BMP.h"
+#include "util.h"
 
 using namespace dealii;
 extern const int xstep;
@@ -28,18 +31,6 @@ extern Mat_DP *fibroblast_density_ptr;
 extern Mat_DP *speedfield_ptr;
 extern Mat_DP *thetafield_ptr;
 
-Mat_DP F(2,2);
-Mat_DP F_pre(2,2); 
-void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A);
-void matrix_inverse(Mat_DP& F_inverse,Mat_DP F); 
-double fb_density(double y, double x){
-    return (*fibroblast_density_ptr)[(int)y][(int)x];
-}
-bool isOnWoundEdge(int x, int y) {
-    //return abs(abs(x-500.0)-500.0)<1.5 || abs(abs(y-500.0)-500.0) < 1.5;
-    //return abs(sqrt(pow(x-500.0,2)+pow(y-500.0,2)) - 400.0) < 1.5;
-    return abs(sqrt(pow(x-500.0,2)+pow((y-500.0)/0.8,2)) - 400.0) < 1.5;
-}
 
 template <int dim>
 RightHandSide<dim>::RightHandSide ()
@@ -167,7 +158,7 @@ void Cdensity<dim>::vector_value (const Point<dim> &p,
 	  ExcDimensionMismatch (values.size(), dim));
   Assert (dim >= 2, ExcNotImplemented());
     
-  values(0) = collagen_density[(int)p(1)][(int)p(0)];
+  values(0) = collagen_density[(int)(p(1)/5.0)][(int)(p(0)/5.0)];
   
 }
 
@@ -438,6 +429,8 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
 				       // contributions:                                        
  
       for (unsigned int q_point=0; q_point<n_q_points;++q_point){         
+          Mat_DP F(2,2);
+          Mat_DP F_pre(2,2);
           F[0][0]=1;
           F[0][1]=0;
           F[1][0]=0;
@@ -913,7 +906,7 @@ void ElasticProblem<dim>::run(const Mat_DP& collagen, const Mat_DP& collagen_den
     static int cycle=0;
     if(cycle == 0){
         GridGenerator::hyper_cube (triangulation, 0, 1000);
-        triangulation.refine_global (7);    
+        triangulation.refine_global (6);    
         std::cout << "   Number of active cells:       "
 	              << triangulation.n_active_cells()
 	              << std::endl;   
@@ -975,7 +968,8 @@ void ElasticProblem<dim>::output_woundcontour(){
 //   VectorTools::interpolate (dof_handler_pressure, pres, pres_n);
 
 //calculate the elasticity coefficients
-void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A) {   
+template <int dim>
+void ElasticProblem<dim>::elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A) {   
     
     //from tissue displacement, get tissue deformation gradients in two different directions
 
@@ -1160,22 +1154,5 @@ void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A) {
     return;
 }
 
-void matrix_inverse(Mat_DP& F_inverse,Mat_DP F)
-{
-     double det_F=F[0][0]*F[1][1]-F[0][1]*F[1][0];
-     if(det_F !=0){
-         F_inverse[0][0] = F[1][1]/det_F;
-         F_inverse[0][1] = -F[0][1]/det_F;
-         F_inverse[1][0] = -F[1][0]/det_F;
-         F_inverse[1][1] = F[0][0]/det_F;
-     }
-     else{
-         F_inverse[0][0] = 0;
-         F_inverse[0][1] = 0;
-         F_inverse[1][0] = 0;
-         F_inverse[1][1] = 0;
-     }
 
-     return;
-}
-
+#endif
