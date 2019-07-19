@@ -4,20 +4,43 @@
 #include <iostream>
 #include "chemokine.h"
 #include "ECM.h"
+#include "BMP.h"
 
 using namespace std;   
 
-Flist::Flist(int xstep, int ystep, int FNinit):
-        mXstep(xstep), mYstep(ystep), speed(15)
-{
+extern Mat_DP *fibroblast_density_ptr;
+extern Mat_DP *speedfield_ptr;
+extern Mat_DP *thetafield_ptr;
+
+Flist::Flist(int xstep, int ystep):
+        mXstep(xstep), mYstep(ystep), speed(15) {}
+
+void Flist::initialize(int FDensity, int wound_radius){
     DP x,y,theta;
-    for(int i=0;i<FNinit;i++){               
+    int FNumber = FDensity * (mXstep/1000.0) * (mYstep/1000.0);
+    for(int i=0;i<FNumber;i++){               
         x = rand()%mXstep;
         y = rand()%mYstep;
-        theta = (rand()%360)*M_PI/180;
+        theta = (rand()%360)*M_PI/180.0;
         
-        //if(pow(x-500,2)+pow(y-500,2) > 160000 || pow(x-500,2)+pow(y-500,2) < 90000 ){ 
-        if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= 350*350){// || pow((x-500.0)/0.3,2)+pow(y-500.0,2) >=202500){                      
+        //if(pow(x-mXstep/2,2)+pow(y-mYstep,2) > 160000 || pow(x-mXstep,2)+pow(y-mYstep,2) < 90000 ){ 
+        if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= wound_radius*wound_radius){// || pow((x-mXstep/2)/0.3,2)+pow(y-mYstep/2,2) >=202500){                      
+    	    mFCells.push_back(Fibroblast(x,y, theta));    
+        }       
+    }          
+    return;
+}
+
+void Flist::initialize(int FDensity, double a, double b){
+    DP x,y,theta;
+    int FNumber = FDensity * (mXstep/1000.0) * (mYstep/1000.0);
+    for(int i=0;i<FNumber;i++){               
+        x = rand()%mXstep;
+        y = rand()%mYstep;
+        theta = (rand()%360)*M_PI/180.0;
+        
+        //if(pow(x-mXstep/2,2)+pow(y-mYstep,2) > 160000 || pow(x-mXstep,2)+pow(y-mYstep,2) < 90000 ){ 
+        if(pow(x-mXstep/2,2)+pow(a/b*(y-mYstep/2),2) >= a*a){
     	    mFCells.push_back(Fibroblast(x,y, theta));    
         }       
     }          
@@ -41,8 +64,8 @@ void Flist::Flist_move(Chemokine& PDGF, ECM& extraCellularMatrix, DP time_step)
 
 void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, Mat_DP& collagen, DP time_step)
 {
-    DP rou1 = 0.5, rou2 = 0.3;
-//************************chemotaxis********************************************
+    DP rou1 = 0.3, rou2 = 0.4;
+    //************************chemotaxis********************************************
     DP gradtheta = -1;
     DP speed_taken = speed;
     
@@ -53,7 +76,7 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
     DP grad=min(1.0,1000*sqrt(pow(gradx,2)+pow(grady,2)));
     rou1=rou1*grad;
     rou2=rou2*cdensity;
-//    cout<<"rou2="<<rou2<<endl;
+    //cout<<"rou2="<<rou2<<endl;
     if(gradx != 0){
         if(gradx > 0 && grady >= 0)gradtheta = atan(grady/gradx);//1st phase 
         else if(gradx < 0 && grady >= 0)gradtheta = M_PI + atan(grady/gradx);//2nd phase
@@ -65,7 +88,7 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
          else gradtheta = -1;
     }    
     
-//***********************guidance of collagen***********************************      
+    //***********************guidance of collagen***********************************      
     int gridy,gridx;
     DP l_y,l_x;
    
@@ -139,8 +162,58 @@ void Flist::Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grad
     //(int)ÊÇÈ¡ÕûÊý²¿·Ö£¬²»ÊÇËÄÉáÎåÈë 
     if(curPtr->xx < 0)curPtr->xx = 0;
     if(curPtr->yy < 0)curPtr->yy = 0;
-    if(curPtr->xx >= 1000)curPtr->xx = 1000-1;
-    if(curPtr->yy >= 1000)curPtr->yy = 1000-1;
+    if(curPtr->xx >= mXstep)curPtr->xx = mXstep-1;
+    if(curPtr->yy >= mYstep)curPtr->yy = mYstep-1;
     
     return;          
+}
+
+void Flist::output_fibroblast(){
+    Mat_DP &fibroblast_density = *fibroblast_density_ptr;
+    Mat_DP &speedfield = *speedfield_ptr;
+    Mat_DP &thetafield = *thetafield_ptr;
+    
+    for(size_t i = 0; i < mYstep; i++) {
+        for(size_t j = 0; j < mXstep; j++) {
+            fibroblast_density[i][j] = 0.0;
+            speedfield[i][j] = 0.0;
+            thetafield[i][j] = 0.0;
+        }
+    }
+
+    auto it = mFCells.begin();
+    cout << "output fibroblast........this may take a while.....\n" << endl;
+    for(; it != mFCells.end(); it++) {
+        int starty, endy, startx, endx, a = 45, b = 36;
+        DP c = sqrt(a*a - b*b);
+        starty = it->yy<a ? 0 : (int)it->yy - a;
+        endy = (it->yy > mYstep-a) ? mYstep-1 : (int)it->yy + a;
+        startx = it->xx<a ? 0 : (int)it->xx - a;
+        endx = (it->xx > mXstep-a) ? mXstep-1 : (int)it->xx + a;
+
+        DP focus1x = it->xx - c*cos(it->theta);
+        DP focus1y = it->yy - c*sin(it->theta);
+        DP focus2x = it->xx + c*cos(it->theta);
+        DP focus2y = it->yy + c*sin(it->theta);
+
+        DP distance;
+        for(int i = starty; i <= endy; i++){
+            for(int j = startx; j <= endx; j++){
+                distance = sqrt(pow(i-focus1y,2) + pow(j-focus1x,2)) +
+                           sqrt(pow(i-focus2y,2) + pow(j-focus2x,2));
+                double current_density = 0.5 * cos(M_PI*pow(distance-2*c, 0.5)/pow(2*a-2*c, 0.5) ) + 0.5;
+                if (distance <= 2*a && fibroblast_density[i][j] < current_density) {
+                    fibroblast_density[i][j] = current_density;
+                    speedfield[i][j] = it->speed;
+                    thetafield[i][j] = it->theta;
+                }
+            }
+        }
+    }
+
+    static int out_i = 0;
+    char file_name[21];
+    sprintf(file_name, "output/cell%05d.BMP", out_i);
+    BMP::output_BMP(file_name, 14, fibroblast_density, mXstep, mYstep);
+    out_i++;
 }

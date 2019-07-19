@@ -8,7 +8,7 @@
 
 class Chemokine{
 public:
-    Chemokine(int nx_, int ny_, double dx_, double D, double decay_rate_);
+    Chemokine(int xstep, int ystep, double dx_, double D, double decay_rate_);
     ~Chemokine();
     
     void initialize(double wound_radius);

@@ -16,7 +16,8 @@ public:
             ECM_ystep(ystep),ECM_xstep(xstep),
             collagen(ystep/10,xstep/10),collagen_density(ystep/5,xstep/5),
             fibronectin_density(ystep/5,xstep/5) {};
-    void initiate(int wound_radius);
+    void initialize(int wound_radius);
+    void initialize(double a, double b);
     void collagen_orientation(Flist& fibroblastList, const Mat_DP& tdx, const Mat_DP& tdy, double time_step);
     void collagen_orientation_with_fibroblast(Flist& fList, double time_step);
     void output_collagen(Flist& fibroblastList);

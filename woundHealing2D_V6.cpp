@@ -11,7 +11,7 @@
 //             None.
 #define FALSE 0
 #define TRUE 1 
-#define ANGIOGENESIS 1
+//#define ANGIOGENESIS 1
 #define MECHANICS 1
 #include <cstdlib>
 #include <iostream>
@@ -31,9 +31,9 @@
 
 using namespace std; 
 
-const int FNinit = 600;        
+const int FDensity = 600;        
 const int ENinit = 12;
-const int xstep = 1000, ystep = 1000;//unit um
+const int xstep = 2000, ystep = 1500;//unit um
 const int wound_radius = 350;
 const DP time_total = 200;//unit hr
 const DP time_step = 0.15;//unit hr
@@ -59,21 +59,21 @@ int main()
     srand(time(NULL)); 
     int nSteps = (int)(time_total/time_step)+1;
 
-    Chemokine PDGF(ystep,xstep,1.0,D_P,decay_P);
+    Chemokine PDGF(xstep,ystep,1.0,D_P,decay_P);
     PDGF.initialize(wound_radius);
   
 #ifdef ANGIOGENESIS 
-    Chemokine VEGF(ystep,xstep,1.0,D_V,decay_V);
+    Chemokine VEGF(xstep,ystep,1.0,D_V,decay_V);
     VEGF.initialize(wound_radius); 
 #endif
 //****************setup the discrete part of the model**************************
     cout << "**********************************************************************" << endl;
     cout << "****************setup the discrete part of the model*****************" << endl;
     cout << "**********************************************************************" << endl;
-    Flist fibroblastList(xstep, ystep, FNinit);
+    Flist fibroblastList(xstep, ystep, FDensity);
             
     ECM extraCellularMatrix(ystep,xstep);
-    extraCellularMatrix.initiate(wound_radius);
+    extraCellularMatrix.initialize(wound_radius);
 
 #ifdef ANGIOGENESIS 
     EdgePtr edgeList = NULL;
@@ -84,7 +84,7 @@ int main()
 
 #ifdef MECHANICS 
     //deallog.depth_console (0); 
-    ElasticProblem<2> elastic_problem_2d;
+    ElasticProblem<2> elastic_problem_2d(xstep, ystep);
 #endif 
     //****************main loop*****************************************************
 
@@ -92,35 +92,13 @@ int main()
         cout << "========================k=" << k << "=======================" << endl;
         //**********PDE for cytokine reaction-diffusion*********************************  
         PDGF.diffusion(time_step);
-        VEGF.diffusion(time_step);
  
 #ifdef MECHANICS         
         if(k % 10 == 0){
-            //starts arbitrarily large number
-            int first_iteration_tag = 1;
-            double residue_total = 100000;
-            int iter_counter = 0;
-            int continue_tag;
-            do{ //condition of convergence???????????????????????????????????????????????????????
-                cout <<endl << "iteration:"<<first_iteration_tag<<endl;
-                elastic_problem_2d.run(extraCellularMatrix.collagen,
+            fibroblastList.output_fibroblast();
+            elastic_problem_2d.run_until_converge(extraCellularMatrix.collagen,
                                        extraCellularMatrix.collagen_density,
                                        *fibroblast_density_ptr);
-                if(first_iteration_tag < 3){first_iteration_tag++; residue_total = 100000;}
-                //first_iteration_tag = 1 : don't have solution
-                //first_iteration_tag = 2 : have solution; don't have solution_pre
-                else if(first_iteration_tag == 3)first_iteration_tag = 3;//have solution and solution_pre 
-                iter_counter ++;
-                    
-                continue_tag = 1;
-                if(iter_counter > 20 && iter_counter%10 == 0){
-                    printf("Continues?");
-                    scanf("%d", &continue_tag);
-                }
-                if(continue_tag == 0)break;     
-            } while(residue_total > 500);
-            printf("output wound contour...\n");
-            elastic_problem_2d.output_woundcontour();
         }
 #endif        
  
@@ -141,6 +119,7 @@ int main()
     
         //******************************************************************************
 #ifdef ANGIOGENESIS
+        VEGF.diffusion(time_step);
         VEGF.calculate_gradient();
         endoList.Elist_move(*(VEGF.gradx), *(VEGF.grady), extraCellularMatrix, time_step);    
         cout << "endocyte move done" << endl;

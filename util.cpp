@@ -8,10 +8,10 @@ double fb_density(double y, double x){
     return (*fibroblast_density_ptr)[(int)y][(int)x];
 }
 
-bool isOnWoundEdge(double x, double y) {
+bool isOnWoundEdge(double x, double y, int mXstep, int mYstep) {
     //return abs(abs(x-500.0)-500.0)<1.5 || abs(abs(y-500.0)-500.0) < 1.5;
-    //return abs(sqrt(pow(x-500.0,2)+pow(y-500.0,2)) - 400.0) < 1.5;
-    return abs(sqrt(pow(x-500.0,2)+pow((y-500.0)/0.8,2)) - 400.0) < 1.5;
+    return abs(sqrt(pow(x-mXstep/2,2)+pow(y-mYstep/2,2)) - 350.0) < 1.5;
+    //return abs(sqrt(pow(x-500.0,2)+pow((y-500.0)/0.8,2)) - 400.0) < 1.5;
 }
 
 void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A);

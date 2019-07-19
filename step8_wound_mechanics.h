@@ -77,11 +77,10 @@ using namespace dealii;
 template <int dim>
 class ElasticProblem {
 public:
-    ElasticProblem ();
+    ElasticProblem (int xstep, int ystep);
     ~ElasticProblem ();
     void run (const Mat_DP&, const Mat_DP&, const Mat_DP&);
     void run_until_converge(const Mat_DP&, const Mat_DP&, const Mat_DP&);
-    void output_woundcontour();
 public:
     Mat_DP tissue_displacement_x;
     Mat_DP tissue_displacement_y;    
@@ -91,7 +90,8 @@ private:
     void assemble_system (const Mat_DP&, const Mat_DP&, const Mat_DP&);
     void solve ();
     void refine_grid ();
-    void output_results (const unsigned int cycle);
+    void output_deformation_profile ();
+    void output_woundcontour();
 
     void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A);
 
@@ -113,6 +113,7 @@ private:
     DP residue_local;//state variable
     DP residue_total;//state variable
     DP residue_max;//state variable
+    int mXstep, mYstep;
 };
 
 

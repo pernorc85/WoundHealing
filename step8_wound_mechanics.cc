@@ -182,8 +182,9 @@ void Cdensity<dim>::vector_value_list (const std::vector<Point<dim> > &points,
 
 
 template <int dim>
-ElasticProblem<dim>::ElasticProblem ()
+ElasticProblem<dim>::ElasticProblem (int xstep, int ystep)
 		:
+                mXstep(xstep), mYstep(ystep),
 		dof_handler (triangulation),
 		fe (FE_Q<dim>(1), dim)
 {}
@@ -253,8 +254,8 @@ void ElasticProblem<dim>::setup_system ()
   solution_pre.reinit (dof_handler.n_dofs());
   system_rhs.reinit (dof_handler.n_dofs());
 
-  tissue_displacement_x = Mat_DP(1000, 1000);
-  tissue_displacement_y = Mat_DP(1000, 1000);
+  tissue_displacement_x = Mat_DP(mYstep, mXstep);
+  tissue_displacement_y = Mat_DP(mYstep, mXstep);
 }
 
 
@@ -795,12 +796,13 @@ void ElasticProblem<dim>::refine_grid ()
 				 // each component of the solution
 				 // vector a different name.
 template <int dim>
-void ElasticProblem<dim>::output_results (const unsigned int cycle) 
+void ElasticProblem<dim>::output_deformation_profile () 
 {
+  static int out_i = 0;
   char filename[16];
-  sprintf(filename, "solution-%3d.vtk", cycle);
-  Assert (cycle < 30, ExcInternalError());
-  
+  sprintf(filename, "output/solution-%d.vtk", out_i);
+ 
+  cout << "output deformation profile..." << endl; 
   std::ofstream output (filename);
 
   DataOut<dim> data_out;
@@ -841,11 +843,11 @@ void ElasticProblem<dim>::output_results (const unsigned int cycle)
   Point<dim> point; 
     //std::vector<Vector<double> > value_list (1000, Vector<double>(dim));
   Vector<double> value;
-  for(int i=0;i<ystep;i++){            
-      for(int j=0;j<xstep;j++){ 
+  for(int i=0;i<mYstep;i++){            
+      for(int j=0;j<mXstep;j++){ 
           point(0)=(double)j; 
           point(1)=(double)i;
-          if(isOnWoundEdge(j, i)) {
+          if(isOnWoundEdge(j, i, mXstep, mYstep)) {
                 VectorTools::point_value(dof_handler, solution, point, value);
                 //ºÜÏÔÈ»£¬ÕâÀïµÄdof_handlerÀàÐÍ²»ÊÇ DoFHandler< dim, spacedim >,µ«Ò²¿ÉÒÔÕâÑùÓÃ
                 //solution ÊÇ vector-valued FE function
@@ -867,7 +869,7 @@ static void VectorTools::point_value  (
  ) 
 */
 //see reference to step-7 for the use of VectorTools::___
-
+  out_i++;
 }
 
 template <int dim>
@@ -879,7 +881,7 @@ void ElasticProblem<dim>::run_until_converge (const Mat_DP& collagen, const Mat_
     int continue_tag;
     do{ //condition of convergence????????????????
         cout <<endl << "iteration:"<<first_iteration_tag<<endl;
-        run (collagen, collagen_density, fibroblast_density); 
+        run(collagen, collagen_density, fibroblast_density); 
                               
         if(first_iteration_tag < 3){
             first_iteration_tag++; 
@@ -890,7 +892,7 @@ void ElasticProblem<dim>::run_until_converge (const Mat_DP& collagen, const Mat_
             //first_iteration_tag = 3 : have solution and solution_pre 
         }
 
-        iter_counter ++;
+        iter_counter++;
                     
         continue_tag = 1;
         if(iter_counter > 20 && iter_counter%10 == 0){
@@ -898,15 +900,25 @@ void ElasticProblem<dim>::run_until_converge (const Mat_DP& collagen, const Mat_
             scanf("%d", &continue_tag);
         }
         if(continue_tag == 0)break;     
-    }while(residue_total > 500);
+    }while(residue_total > 20.0);
+
+    output_deformation_profile();
+    cout << "output wound contour...\n" << endl;
+    output_woundcontour();
 }
 
 template <int dim>
 void ElasticProblem<dim>::run(const Mat_DP& collagen, const Mat_DP& collagen_density, const Mat_DP& fibroblast_density) {
     static int cycle=0;
     if(cycle == 0){
-        GridGenerator::hyper_cube (triangulation, 0, 1000);
-        triangulation.refine_global (6);    
+        if (mXstep == mYstep){ 
+            GridGenerator::hyper_cube (triangulation, 0, mXstep);
+        } else {
+            Point<dim> p0(0,0);
+            Point<dim> p1(mXstep, mYstep);
+            GridGenerator::hyper_rectangle (triangulation, p0, p1);
+        }
+        triangulation.refine_global (7);    
         std::cout << "   Number of active cells:       "
 	              << triangulation.n_active_cells()
 	              << std::endl;   
@@ -914,6 +926,7 @@ void ElasticProblem<dim>::run(const Mat_DP& collagen, const Mat_DP& collagen_den
         std::cout << "   Number of degrees of freedom: "
 	              << dof_handler.n_dofs()
 	              << std::endl;
+        cycle++;
     }
     
 //*************************************************
@@ -925,29 +938,24 @@ void ElasticProblem<dim>::run(const Mat_DP& collagen, const Mat_DP& collagen_den
     //cout << "system_rhs(100)=" << system_rhs(100) << endl;
     solution_pre = solution;//store the old solution to solution_pre
     solve ();//get the new solution
-
-     
-    if(cycle%5 == 0)
-        output_results (cycle/5);
-    cycle++;
 }
 
 template <int dim>
 void ElasticProblem<dim>::output_woundcontour(){
-    Mat_DP woundcontour(ystep,xstep);
+    Mat_DP woundcontour(mYstep,mXstep);
     DP tdx,tdy;
-    for(size_t i=0; i<ystep; i++){
-        for(size_t j=0; j<xstep; j++){
+    for(size_t i=0; i<mYstep; i++){
+        for(size_t j=0; j<mXstep; j++){
             woundcontour[i][j] = 0;
         }
     }
 
-    for(size_t i=0; i<ystep; i++){
-        for(size_t j=0; j<xstep; j++){
-            if( isOnWoundEdge(j,i) ){
+    for(size_t i=0; i<mYstep; i++){
+        for(size_t j=0; j<mXstep; j++){
+            if( isOnWoundEdge(j,i,mXstep,mYstep) ){
                 tdx = tissue_displacement_x[i][j];
                 tdy = tissue_displacement_y[i][j];
-                if(i+(int)tdy>=0 && i+(int)tdy<=999 && j+(int)tdx>=0 && j+(int)tdy<=999){
+                if(i+(int)tdy>=0 && i+(int)tdy<mYstep && j+(int)tdx>=0 && j+(int)tdy<mXstep){
                     woundcontour[i+(int)tdy][j+(int)tdx] = 1;
                 }
             }
@@ -957,7 +965,7 @@ void ElasticProblem<dim>::output_woundcontour(){
     static int out_i = 0;
     char file_name[21];
     sprintf(file_name, "output/cont%05d.BMP", out_i++);
-    BMP::output_BMP(file_name, 14, woundcontour, xstep, ystep);
+    BMP::output_BMP(file_name, 14, woundcontour, mXstep, mYstep);
 
     return;
 }

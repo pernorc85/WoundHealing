@@ -26,8 +26,9 @@ void Chemokine::initialize(double a/*major semi_axis*/, double b/*minor semi_axi
     for(i=0;i<ystep;i++){//from bottom up
         for(j=0;j<xstep;j++){//from left to right
             double dist_from_focus = sqrt(pow(j-xstep/2,2) + pow(a/b*(i-ystep/2), 2));
-            if(dist_from_focus > c + 50 )(*conc)[i][j] = 0; 
-            else if(dist_from_focus < a + 50 && dist_from_focus > a - 50 ){     
+            if(dist_from_focus > a + 50 ){
+                (*conc)[i][j] = 0; 
+            } else if(dist_from_focus < a + 50 && dist_from_focus > a - 50 ){     
                 (*conc)[i][j] = -sin( (dist_from_focus - a)/50*M_PI/2 )*0.5 + 0.5;
             } 
             else (*conc)[i][j] = 1;  
@@ -99,7 +100,7 @@ void Chemokine::diffusion(double time_step){
 void Chemokine::output(int out_i, std::string GF_name){
      printf("output chemokine profile...\n");
      char file_name[21];
-     sprintf(file_name, "output/%s%5d.BMP", GF_name.c_str(), out_i);
+     sprintf(file_name, "output/%s%05d.BMP", GF_name.c_str(), out_i);
      BMP::output_BMP(file_name, 15, (*conc), xstep, ystep);
 }
 
