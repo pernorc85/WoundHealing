@@ -65,8 +65,10 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
       value1 = (fb_density(p(1),p(0))-fb_density(p(1)-dy,p(0)))/dy;
   else value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1)-dy,p(0)))/2/dy;
   
-  values(0) = value0*50 + 3*fb_density(p(1),p(0))*speedfield[(int)p(1)][(int)p(0)]/15*cos(thetafield[(int)p(1)][(int)p(0)]);
-  values(1) = value1*50 + 3*fb_density(p(1),p(0))*speedfield[(int)p(1)][(int)p(0)]/15*sin(thetafield[(int)p(1)][(int)p(0)]);
+  double speed = speedfield[(int)p(1)][(int)p(0)];
+  double theta = thetafield[(int)p(1)][(int)p(0)];
+  values(0) = value0*50 + 3*fb_density(p(1),p(0))*speed/15*cos(theta)]);
+  values(1) = value1*50 + 3*fb_density(p(1),p(0))*speed/15*sin(theta)]);
 
   //values(0) = d/dx*(10^-4N/cell*0.001cell/um^2*fb_density) = d/dx* fb_density * 100kPa
   //10^-4N/cell * 0.001cell/um^2 = 10^-7N/um^2 = 10^5Pa = 100kPa
@@ -384,11 +386,7 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
 				       // Then assemble the entries of
 				       // the local stiffness matrix
 				       // and right hand side
-				       // vector. This follows almost
-				       // one-to-one the pattern
-				       // described in the
-				       // introduction of this
-				       // example.  One of the few
+				       // vector. One of the few
 				       // comments in place is that we
 				       // can compute the number
 				       // <code>comp(i)</code>, i.e. the index
@@ -436,21 +434,13 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
           F[0][1]=0;
           F[1][0]=0;
           F[1][1]=1;
-          F_pre[0][0] = 1;
-          F_pre[0][1] = 0;
-          F_pre[1][0] = 0;
-          F_pre[1][1] = 1;
+          F_pre = F;
           for (unsigned int ii=0; ii<dofs_per_cell; ++ii){
               //cout<<"solution_local="<<solution(local_dof_indices[ii])<<endl;
               const unsigned int component_ii = fe.system_to_component_index(ii).first; 
               if(first_iteration_tag == 1){//if this is first iteration testing convergence
-//                  F[0][0] += 0.5;
-//                  F[0][1] += 0;
-//                  F[1][0] += 0;
-//                  F[1][1] += 0.5;
 //                  Do nothing. F is initiated to (1,0,0,1);   
-              }
-              else if(first_iteration_tag == 2){
+              } else if(first_iteration_tag == 2){
                    F[0][0] += 
 //                (fe_values.shape_grad(1,q_point)[component_1]*solution(local_to_global(1)) 
 //                +fe_values.shape_grad(3,q_point)[component_3]*solution(local_to_global(3))
@@ -475,8 +465,7 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
 //                +fe_values.shape_grad(6,q_point)[component_6]*solution(local_to_global(6))
 //                +fe_values.shape_grad(8,q_point)[component_8]*solution(local_to_global(8));
                 ((ii%2==0) ? fe_values.shape_grad(ii,q_point)[component_ii]*solution(local_dof_indices[ii]) : 0);                           
-              }
-              else {
+              } else {
                   F[0][0] += 
                 ((ii%2==1) ? fe_values.shape_grad(ii,q_point)[component_ii]*solution(local_dof_indices[ii]) : 0);
                   F_pre[0][0] +=
@@ -1005,17 +994,9 @@ void ElasticProblem<dim>::elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_densit
 //    W=c/2*(I1-3) + k1/2*(I4-1)^2
 //    exp(x) ~ 1+x+x^2/2
 //    W=c/2*(I1-3) + k1/2*(I4-1)^2 + k1*k2/4*(I4-1)^4 
-    //B=F*F_trans
-    B[0][0]=F[0][0]*F[0][0]+F[0][1]*F[0][1];
-    B[0][1]=F[0][0]*F[1][0]+F[0][1]*F[1][1];
-    B[1][0]=F[1][0]*F[0][0]+F[1][1]*F[0][1];
-    B[1][1]=F[1][0]*F[1][0]+F[1][1]*F[1][1];
-    
-    //C=F_trans*F
-    C[0][0]=F[0][0]*F[0][0]+F[1][0]*F[1][0];
-    C[0][1]=F[0][0]*F[0][1]+F[1][0]*F[1][1];
-    C[1][0]=F[0][1]*F[0][0]+F[1][1]*F[1][0];
-    C[1][1]=F[0][1]*F[0][1]+F[1][1]*F[1][1]; 
+    B = multiply(F, transpose(F));    
+    C = multiply(transpose(F), F);
+  
     
     double I1,I2,I3,I4;
     //I1 = tr(B)
