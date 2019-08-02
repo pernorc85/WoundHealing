@@ -25,8 +25,9 @@ class Flist{
 public:
     Flist(int xstep, int ystep);
     void initialize(int FDensity, double a, double b);
+    void initialize_rectangle(int FDensity, double a, double b);
     void initialize(int FDensity, int wound_radius);
- 
+   
     void Flist_move(Chemokine& PDGF,
                     ECM& extraCellularMatrix, DP time_step); 
     void Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, 

@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <cmath>
+#include <cassert>
 
 extern Mat_DP *fibroblast_density_ptr;
 double fb_density(double y, double x){
@@ -10,8 +11,9 @@ double fb_density(double y, double x){
 
 bool isOnWoundEdge(double x, double y, int mXstep, int mYstep) {
     //return abs(abs(x-500.0)-500.0)<1.5 || abs(abs(y-500.0)-500.0) < 1.5;
-    return abs(sqrt(pow(x-mXstep/2,2)+pow(y-mYstep/2,2)) - 350.0) < 1.5;
-    //return abs(sqrt(pow(x-500.0,2)+pow((y-500.0)/0.8,2)) - 400.0) < 1.5;
+    return abs(sqrt(pow(x-mXstep/2,2)+pow(y-mYstep/2,2)) - 350.0) < 2.0;
+    //double a = 400, b = 300;
+    //return abs(sqrt(pow(x-mXstep/2,2)+pow(a/b*(y-mYstep/2),2)) - a) < 2.0;
 }
 
 void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A);
@@ -31,5 +33,62 @@ void matrix_inverse(Mat_DP& F_inverse,Mat_DP F) {
      }
 
      return;
+}
+
+Mat_DP transpose(Mat_DP F){
+    assert(F.nrows() == F.ncols());
+    Mat_DP Ft(F.nrows(),F.nrows());
+    for(size_t i = 0; i < F.nrows(); i++) {
+        for(size_t j = 0; j < F.ncols(); j++) {
+            Ft[i][j] = F[j][i];
+        }
+    }
+    return Ft;
+}
+
+Mat_DP multiply(Mat_DP A, Mat_DP B){
+    assert(A.ncols() == B.nrows());
+    Mat_DP C(A.nrows(), B.ncols());
+    for(size_t i = 0; i< A.nrows(); i++) {
+        for(size_t j = 0; j < B.ncols(); j++) {
+            C[i][j] = 0.0;
+            for(size_t k = 0; k < A.ncols(); k++) {
+                C[i][j] += A[i][k]*B[k][j];
+            }
+        }
+    }
+    return C;
+}
+
+Vec_DP eigen_decomposition(Mat_DP G, Mat_DP &eigen_vecs){
+    Vec_DP eig(2);
+    double det = sqrt(4*G[0][1]*G[0][1] + pow(G[0][0]-G[1][1], 2));
+    eig[0] = 0.5 * (G[0][0] + G[1][1] + det);
+    eig[1] = 0.5 * (G[0][0] + G[1][1] - det);
+
+    double b = G[0][1];
+    if (b) {
+        double v0 = eig[0] - G[1][1];
+        double v1 = b;
+        double vn = sqrt(v0*v0 + v1*v1);
+        eigen_vecs[0][0] = v0/vn;
+        eigen_vecs[1][0] = v1/vn;
+
+        v0 = eig[1] - G[1][1];
+        vn = sqrt(v0*v0 + v1*v1);
+        eigen_vecs[0][1] = v0/vn;
+        eigen_vecs[1][1] = v1/vn;
+    } else if (G[0][0] >= G[1][1]) {
+        eigen_vecs[0][0] = 1;
+        eigen_vecs[0][1] = 0;
+        eigen_vecs[1][0] = 0;
+        eigen_vecs[1][1] = 1;
+    } else {
+        eigen_vecs[0][0] = 0;
+        eigen_vecs[0][1] = 1;
+        eigen_vecs[1][0] = 1;
+        eigen_vecs[1][1] = 0;
+    } 
+    return eig;
 }
 

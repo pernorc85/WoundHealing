@@ -54,6 +54,34 @@ void Chemokine::initialize(double radius){//if radius = 350
     isGradientCalculated = false;
 }
 
+void Chemokine::initialize_rectangle(double a, double b){
+    int xcenter = xstep * 0.5;
+    int ycenter = ystep * 0.5;
+    for(int i=0; i<ystep; i++){//from bottom up
+        for(int j=0; j<xstep; j++){
+            if(abs(j-xcenter)>a*0.5+50 || abs(i-ycenter)>b*0.5+50) {
+                (*conc)[i][j] = 0.0;
+            } else if(abs(j-xcenter)>a*0.5-50 || abs(i-ycenter)>b*0.5-50) {
+                (*conc)[i][j] = 0.0;
+                if (abs(j-xcenter)<=a*0.5+50 && abs(j-xcenter)>a*0.5-50) {
+                    double frame = abs(j-xcenter) - a*0.5;
+                    (*conc)[i][j] = -sin( frame*0.02 * M_PI/2 )*0.5 + 0.5;
+                }
+                if(abs(i-ycenter)<=b*0.5+50 && abs(i-ycenter)>b*0.5-50){
+                    double frame = abs(i-ycenter) - b*0.5;
+                    double tmp = -sin( frame*0.02 * M_PI/2 )*0.5 + 0.5;
+                    if ((*conc)[i][j] != 0.0 and tmp < (*conc)[i][j]) 
+                        (*conc)[i][j] = tmp;
+                    else if((*conc)[i][j] == 0.0)
+                        (*conc)[i][j] = tmp;
+                }
+            } else {
+                (*conc)[i][j] = 1.0;
+            }
+        }
+    }
+}
+
 void Chemokine::initialize2(){
     int i, j;
     for(i=0;i<xstep;i++)

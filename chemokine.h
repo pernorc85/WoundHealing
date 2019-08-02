@@ -13,6 +13,7 @@ public:
     
     void initialize(double wound_radius);
     void initialize(double wound_a, double wound_b);
+    void initialize_rectangle(double a, double b);
     void initialize2();
     void calculate_gradient();
     void diffusion(double tlength);

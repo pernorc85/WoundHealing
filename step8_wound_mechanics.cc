@@ -51,25 +51,75 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
   Mat_DP &thetafield = *thetafield_ptr;    
   double dx=1,dy=1;
   double value0,value1;
-  
-  if(p(0) == 0)
-      value0 = (fb_density(p(1),p(0)+dx)-fb_density(p(1),p(0)))/dx;
-  else if(p(0) == xstep)
-      value0 = (fb_density(p(1),p(0))-fb_density(p(1),p(0)-dx))/dx;
-  else  value0 = (fb_density(p(1),p(0)+dx)-fb_density(p(1),p(0)-dx))/2/dx;
-  
-  
-  if(p(1) == 0)    
-      value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1),p(0)))/dy;
-  else if(p(1) == ystep)
-      value1 = (fb_density(p(1),p(0))-fb_density(p(1)-dy,p(0)))/dy;
-  else value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1)-dy,p(0)))/2/dy;
-  
-  double speed = speedfield[(int)p(1)][(int)p(0)];
-  double theta = thetafield[(int)p(1)][(int)p(0)];
-  values(0) = value0*50 + 3*fb_density(p(1),p(0))*speed/15*cos(theta)]);
-  values(1) = value1*50 + 3*fb_density(p(1),p(0))*speed/15*sin(theta)]);
 
+  int type = 1;
+
+  double theta, speed;
+  double dist;
+  switch(type){
+      case 0: 
+          if(p(0) == 0)
+              value0 = (fb_density(p(1),p(0)+dx)-fb_density(p(1),p(0)))/dx;
+          else if(p(0) == xstep)
+              value0 = (fb_density(p(1),p(0))-fb_density(p(1),p(0)-dx))/dx;
+          else  value0 = (fb_density(p(1),p(0)+dx)-fb_density(p(1),p(0)-dx))/2/dx;
+  
+  
+          if(p(1) == 0)    
+              value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1),p(0)))/dy;
+          else if(p(1) == ystep)
+              value1 = (fb_density(p(1),p(0))-fb_density(p(1)-dy,p(0)))/dy;
+          else value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1)-dy,p(0)))/2/dy;
+  
+          speed = speedfield[(int)p(1)][(int)p(0)]; 
+          theta = thetafield[(int)p(1)][(int)p(0)]; 
+          values(0) = value0*50 + 3*fb_density(p(1),p(0))*speed/15*cos(theta);
+          values(1) = value1*50 + 3*fb_density(p(1),p(0))*speed/15*sin(theta);
+          break;
+
+      case 1:
+          //skin tension field A
+          if(pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) );
+              values(0) = -1 * (1 - dist*0.02);
+              values(1) = 0;//-1 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) );
+              values(0) = 1 * (1 - dist*0.02);
+              values(1) = -1 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
+              values(0) = -1 * (1 - dist*0.02);
+              values(1) = 1 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
+              values(0) = 1 * (1 - dist*0.02);
+              values(1) = 1 * (1 - dist*0.02);
+          }
+          break;
+ 
+      case 2:
+          //skin tension field B
+          if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
+              values(0) = 0.0;
+              values(1) = 5 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.4, 2) + pow(p(1)-ystep*0.4, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.4, 2) + pow(p(1)-ystep*0.4, 2) );
+              values(0) = 0.0;
+              values(1) = -5 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
+              values(0) = 0.0;
+              values(1) = 5 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.8, 2) + pow(p(1)-ystep*0.4, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.8, 2) + pow(p(1)-ystep*0.4, 2) );
+              values(0) = 0.0;
+              values(1) = -5 * (1 - dist*0.02);
+          } 
+          break;
+  } // end of switch
+ 
   //values(0) = d/dx*(10^-4N/cell*0.001cell/um^2*fb_density) = d/dx* fb_density * 100kPa
   //10^-4N/cell * 0.001cell/um^2 = 10^-7N/um^2 = 10^5Pa = 100kPa
   //that's why values are multiplied by 100
@@ -386,7 +436,11 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
 				       // Then assemble the entries of
 				       // the local stiffness matrix
 				       // and right hand side
-				       // vector. One of the few
+				       // vector. This follows almost
+				       // one-to-one the pattern
+				       // described in the
+				       // introduction of this
+				       // example.  One of the few
 				       // comments in place is that we
 				       // can compute the number
 				       // <code>comp(i)</code>, i.e. the index
@@ -490,7 +544,6 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
           }
            
 
-        
           if(first_iteration_tag == 3){
               residue_local = sqrt(pow(F[0][0] - F_pre[0][0],2) + pow(F[0][1] - F_pre[0][1],2) 
                       + pow(F[1][0] - F_pre[1][0],2) + pow(F[1][1] - F_pre[1][1],2)) ;
@@ -832,22 +885,35 @@ void ElasticProblem<dim>::output_deformation_profile ()
   Point<dim> point; 
     //std::vector<Vector<double> > value_list (1000, Vector<double>(dim));
   Vector<double> value;
-  for(int i=0;i<mYstep;i++){            
+
+  
+  for(int i=0;i<mYstep;i+=10){      
+      cout << "i=" << i << endl;      
+      for(int j=0;j<mXstep;j+=10){ 
+          point(0)=(double)j; 
+          point(1)=(double)i;
+          VectorTools::point_value(dof_handler, solution, point, value);
+                //ºÜÏÔÈ»£¬ÕâÀïµÄdof_handlerÀàÐÍ²»ÊÇ DoFHandler< dim, spacedim >,µ«Ò²¿ÉÒÔÕâÑùÓÃ
+                //solution ÊÇ vector-valued FE function
+                //ËùÒÔÕâÑùÌáÈ¡½á¹ûÊÇÍêÈ«ÕýÈ·µÄ 
+          tissue_displacement_x[i][j] = value(0);
+          tissue_displacement_y[i][j] = value(1);
+      }  
+  }
+
+
+  for(int i=0;i<mYstep;i++){      
       for(int j=0;j<mXstep;j++){ 
           point(0)=(double)j; 
           point(1)=(double)i;
           if(isOnWoundEdge(j, i, mXstep, mYstep)) {
-                VectorTools::point_value(dof_handler, solution, point, value);
-                //ºÜÏÔÈ»£¬ÕâÀïµÄdof_handlerÀàÐÍ²»ÊÇ DoFHandler< dim, spacedim >,µ«Ò²¿ÉÒÔÕâÑùÓÃ
-                //solution ÊÇ vector-valued FE function
-                //ËùÒÔÕâÑùÌáÈ¡½á¹ûÊÇÍêÈ«ÕýÈ·µÄ 
-                tissue_displacement_x[i][j] = value(0);
-                tissue_displacement_y[i][j] = value(1);
-                //cout<<"value(0)"<<value(0)<<"value(1)"<<value(1)<<endl; 
+              VectorTools::point_value(dof_handler, solution, point, value);
+              tissue_displacement_x[i][j] = value(0);
+              tissue_displacement_y[i][j] = value(1);
           }
-      }  
+      }
   }
-
+  
 /*
 template<int dim, class InVector , int spacedim> 
 static void VectorTools::point_value  ( 
@@ -945,7 +1011,7 @@ void ElasticProblem<dim>::output_woundcontour(){
                 tdx = tissue_displacement_x[i][j];
                 tdy = tissue_displacement_y[i][j];
                 if(i+(int)tdy>=0 && i+(int)tdy<mYstep && j+(int)tdx>=0 && j+(int)tdy<mXstep){
-                    woundcontour[i+(int)tdy][j+(int)tdx] = 1;
+                    woundcontour[i+(int)tdy][j+(int)tdx] = 2.0;
                 }
             }
         }
@@ -994,9 +1060,8 @@ void ElasticProblem<dim>::elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_densit
 //    W=c/2*(I1-3) + k1/2*(I4-1)^2
 //    exp(x) ~ 1+x+x^2/2
 //    W=c/2*(I1-3) + k1/2*(I4-1)^2 + k1*k2/4*(I4-1)^4 
-    B = multiply(F, transpose(F));    
+    B = multiply(F, transpose(F));
     C = multiply(transpose(F), F);
-  
     
     double I1,I2,I3,I4;
     //I1 = tr(B)
@@ -1011,7 +1076,7 @@ void ElasticProblem<dim>::elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_densit
              
        
     int n,ii,jj,aa,bb,cc;
-    double c=50, k1=9*c_density;
+    double c=50, k1=18*c_density;
     double k2=0.2;
     {        
         dW_dI[1] = c/2;

@@ -1,9 +1,12 @@
 #include "ECM.h"
 #include <string>
 #include <cmath>
+#include <tuple>
 #include <iostream> 
 #include "BMP.h" 
 #include "Flist.h"
+#include "util.h"
+
 using namespace std;
 
 void ECM::initialize(double a/*major semi_axis*/, double b/*minor semi_axis*/){
@@ -30,7 +33,48 @@ void ECM::initialize(double a/*major semi_axis*/, double b/*minor semi_axis*/){
         for(j=0; j<ECM_xstep/10; j++){
             theta = rand()%180 * M_PI/180;//collagenºÍfibroblastµÄ·½Ïò¶¼ÓÃ»¡¶È±íÊ¾
             //ÓÃ360Ì«Âé·³ÁË£¬Ö±½ÓÓÃ180 
-            collagen[i][j]=theta;
+            collagen[i][j] = theta;
+            stretch_history[i][j] = 0.0;
+        }
+    } 
+}
+
+void ECM::initialize_rectangle(double a, double b){
+    float xcenter = ECM_xstep * 0.5;
+    float ycenter = ECM_ystep * 0.5;
+    for(int i=0; i<ECM_ystep/5; i++){//from bottom up
+        for(int j=0; j<ECM_xstep/5; j++){
+            if(abs(j*5-xcenter)>a*0.5+50 || abs(i*5-ycenter)>b*0.5+50) {
+                collagen_density[i][j] = 1.0;
+                fibronectin_density[i][j] = 0.0;
+            } else if(abs(j*5-xcenter)>a*0.5-50 || abs(i*5-ycenter)>b*0.5-50) {
+                if(abs(j*5-xcenter)<=a*0.5+50 && abs(j*5-xcenter)>a*0.5-50){ 
+                    double frame = abs(j*5-xcenter) - a*0.5;
+                    collagen_density[i][j] = sin( frame*0.02 * M_PI/2 )*0.5 + 0.5;
+                    fibronectin_density[i][j] = 1 - collagen_density[i][j];
+                }
+                if(abs(i*5-ycenter)<=b*0.5+50 && abs(i*5-ycenter)>b*0.5-50){
+                    double frame = abs(i*5-ycenter) - b*0.5;
+                    double tmp = sin( frame*0.02 * M_PI/2 )*0.5 + 0.5;
+                    if(tmp > collagen_density[i][j]) {
+                        collagen_density[i][j] = tmp; 
+                        fibronectin_density[i][j] = 1 - collagen_density[i][j];
+                    }
+                }
+            } else {
+                collagen_density[i][j] = 0.0;
+                fibronectin_density[i][j] = 1.0;
+            }
+        }
+    }
+
+    DP theta;
+    for(int i=0; i<ECM_ystep/10; i++){
+        for(int j=0; j<ECM_xstep/10; j++){
+            theta = rand()%180 * M_PI/180;//collagenºÍfibroblastµÄ·½Ïò¶¼ÓÃ»¡¶È±íÊ¾
+            //ÓÃ360Ì«Âé·³ÁË£¬Ö±½ÓÓÃ180 
+            collagen[i][j] = theta;
+            stretch_history[i][j] = 0.0;
         }
     } 
 }
@@ -40,12 +84,11 @@ void ECM::initialize(int wound_radius){
     DP theta;
     for(i=0;i<ECM_ystep/5;i++){//from bottom up
         for(j=0;j<ECM_xstep/5;j++){//from left to right
-            
             double dist_from_center = sqrt(pow(j*5-ECM_xstep/2, 2) + pow(i*5-ECM_ystep/2, 2));
             if(dist_from_center >= wound_radius + 50){
                 collagen_density[i][j] = 1; 
                 fibronectin_density[i][j] = 0;
-            } else if(dist_from_center < wound_radius+50 && dist_from_center > wound_radius-50 ){      
+            } else if(dist_from_center < wound_radius+50 && dist_from_center > wound_radius-50 ){
                 collagen_density[i][j] = sin( (dist_from_center-wound_radius)/50*M_PI/2 )*0.5 + 0.5;
                 fibronectin_density[i][j] = 1 - collagen_density[i][j];
             } else{
@@ -55,7 +98,7 @@ void ECM::initialize(int wound_radius){
             /* 
             collagen_density[i][j] = 1;
             fibronectin_density[i][j] = 0;
-            */
+            */ 
         }
     }  
     
@@ -63,7 +106,8 @@ void ECM::initialize(int wound_radius){
         for(j=0; j<ECM_xstep/10; j++){
             theta = rand()%180 * M_PI/180;//collagenºÍfibroblastµÄ·½Ïò¶¼ÓÃ»¡¶È±íÊ¾
             //ÓÃ360Ì«Âé·³ÁË£¬Ö±½ÓÓÃ180 
-            collagen[i][j]=theta;
+            collagen[i][j] = theta;
+            stretch_history[i][j] = 0.0;
         }
     } 
 }
@@ -87,6 +131,8 @@ void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double tim
             ftheta = 0;
             omegasum = 0;
             std::list<Fibroblast>::iterator curPtr = fibroblastList.mFCells.begin();
+            //TODO: This needs acceleration
+            //     Going through the entire list of fibroblasts is too slow for 5mm x 5mm modeling space
             for(; curPtr != fibroblastList.mFCells.end(); curPtr++){
                 //if(abs(curPtr->yy-i*10)<=L && abs(curPtr->xx-j*10)<=L)
                 //    omega = (1-abs(curPtr->yy-i*10)/L) * (1-abs(curPtr->xx-j*10)/L);
@@ -156,35 +202,25 @@ void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double tim
 
 /*
  * F = U*R;
- * Range of return value is [0, PI]
+ * Rotation R doesn't matter, since rotation doesn't cause stress
  */
-double calculate_tensiontheta(Mat_DP &F){
-    double tensiontheta;
-    /*
-    Mat_DP I(2,2);
-    I[0][0] = 1.0; I[0][1] = 0.0;
-    I[1][0] = 0.0; I[1][1] = 1.0;
-    Mat_DP G = (transpose(F) * F - I)/2.;
-    if(td_x != 0){
-        if(td_x > 0 && td_y >= 0)tensiontheta = atan(td_y/td_x);//1st phase 
-        else if(td_x < 0 && td_y >= 0)tensiontheta = M_PI + atan(td_y/td_x);//2nd phase
-        else if(td_x < 0 && td_y < 0)tensiontheta = atan(td_y/td_x);//3nd phase
-        else if(td_x > 0 && td_y < 0)tensiontheta = M_PI + atan(td_y/td_x);//4th phase
-    } else{
-        if(td_y > 0)tensiontheta =  M_PI/2;
-        else if(td_y < 0)tensiontheta = M_PI/2;
-        else tensiontheta = -1;
-    } 
-    */               
-    return 0.0;
-}
-
-double calculate_stretch(Mat_DP &F){
-    Mat_DP I(2,2);
-    I[0][0] = 1.0; I[0][1] = 0.0;
-    I[1][0] = 0.0; I[1][1] = 1.0;
-    //Mat_DP G = (transpose(F) * F - I)/2.;
-    return 1.0;
+std::tuple<double, double, double>
+calculate_principal_strain(Mat_DP &F){
+    Mat_DP C = multiply(transpose(F), F);//left Cauchy strain tensor, which is a positive definite matrix
+    Mat_DP eigen_vecs(2,2);
+    Vec_DP eig = eigen_decomposition(C, eigen_vecs);
+    double stretch1 = sqrt(eig[0]);
+    double stretch2 = sqrt(eig[1]);
+    double principal_strain_direction;
+    if(stretch1 > stretch2) {//actually this is always the case
+        principal_strain_direction = atan(eigen_vecs[1][0] / eigen_vecs[0][0]);
+        if (principal_strain_direction < 0) principal_strain_direction += M_PI;
+        return std::make_tuple(stretch1, stretch2, principal_strain_direction);
+    } else {
+        principal_strain_direction = atan(eigen_vecs[1][1] / eigen_vecs[0][1]);
+        if (principal_strain_direction < 0) principal_strain_direction += M_PI;
+        return std::make_tuple(stretch2, stretch1, principal_strain_direction);
+    }
 }
 
 /**
@@ -194,25 +230,43 @@ double calculate_stretch(Mat_DP &F){
  */
 void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x,
                                              const Mat_DP& tissue_displacement_y, double time_step){
-    DP kappa1 = 5, kappa2 = 5;
+    DP kappa1 = 5, kappa2 = 1;
     for(int i=0; i<ECM_ystep/10; i++){//from bottom up
         for(int j=0; j<ECM_xstep/10; j++){//from left to right
             Mat_DP F(2,2); //deformation gradient
-            F[0][0] = tissue_displacement_x[i*10][j*10+1>=ECM_xstep ? j*10 : j*10+1] - tissue_displacement_x[i*10][j*10-1<0 ? 0 : j*10-1];
-            F[0][1] = tissue_displacement_x[i*10+1>=ECM_ystep ? i*10 : i*10+1][j*10] - tissue_displacement_x[i*10-1<0 ? 0 : i*10-1][j*10];
-            F[1][0] = tissue_displacement_y[i*10][j*10+1>=ECM_xstep ? j*10 : j*10+1] - tissue_displacement_y[i*10][j*10-1<0 ? 0 : j*10-1];
-            F[1][1] = tissue_displacement_y[i*10+1>=ECM_ystep ? i*10 : i*10+1][j*10] - tissue_displacement_y[i*10-1<0 ? 0 : i*10-1][j*10];
-            double tensiontheta = calculate_tensiontheta(F);
+            F[0][0] = tissue_displacement_x[i*10][(j+1)*10>=ECM_xstep ? j*10 : (j+1)*10] - tissue_displacement_x[i*10][(j-1)*10<0 ? 0 : (j-1)*10];
+            F[0][1] = tissue_displacement_x[(i+1)*10>=ECM_ystep ? i*10 : (i+1)*10][j*10] - tissue_displacement_x[(i-1)*10<0 ? 0 : (i-1)*10][j*10];
+            F[1][0] = tissue_displacement_y[i*10][(j+1)*10>=ECM_xstep ? j*10 : (j+1)*10] - tissue_displacement_y[i*10][(j-1)*10<0 ? 0 : (j-1)*10];
+            F[1][1] = tissue_displacement_y[(i+1)*10>=ECM_ystep ? i*10 : (i+1)*10][j*10] - tissue_displacement_y[(i-1)*10<0 ? 0 : (i-1)*10][j*10];
+            F[0][0] /= 20;
+            F[0][1] /= 20;
+            F[1][0] /= 20;
+            F[1][1] /= 20;
+            F[0][0] += 1;
+            F[1][1] += 1;
             //tissue is stretched if stretch > 1.0, compressed if stretch is < 1.0
             //reorientation only happens when stretch > 1.2
-            double stretch = calculate_stretch(F);
-            if(tensiontheta != -1 && stretch > 1.2){
+            double stretch1, stretch2, tensiontheta;
+            std::tie(stretch1, stretch2, tensiontheta) = calculate_principal_strain(F);
+            stretch_history[i][j] *= 0.95;
+            if(stretch1 > 1.2){
+                stretch_history[i][j] += 1.0; 
+            }
+            cout << "stretch1 = " << stretch1 << endl;
+            if(stretch_history[i][j] > 10.0){
+                /*
+                if (stretch2 > 1.0) {//constraint tissue, collagen align perpendicular to principal strain line
+                    tensiontheta += M_PI * 0.5;
+                    if (tensiontheta > M_PI) tensiontheta -= M_PI;
+                }
+                */
+                cout << "tensiontheta = " << tensiontheta << endl;
                 DP increase; 
                 if(abs(tensiontheta-collagen[i][j])<=M_PI/2)
-                    increase = time_step * kappa2 * sqrt(stretch) * sin(tensiontheta-collagen[i][j]);
+                    increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta-collagen[i][j]);
                 else if(tensiontheta>M_PI/2)
-                    increase = time_step * kappa2 * sqrt(stretch) * sin(tensiontheta-M_PI-collagen[i][j]);
-                else increase = time_step * kappa2 * sqrt(stretch) * sin(tensiontheta+M_PI-collagen[i][j]);
+                    increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta-M_PI-collagen[i][j]);
+                else increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta+M_PI-collagen[i][j]);
 
                 collagen[i][j] += increase;
                 cout <<"increase="<<increase<<endl;

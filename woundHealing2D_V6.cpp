@@ -33,8 +33,10 @@ using namespace std;
 
 const int FDensity = 600;        
 const int ENinit = 12;
-const int xstep = 2000, ystep = 1500;//unit um
+const int xstep = 2000, ystep = 2000;//unit um
 const int wound_radius = 350;
+const int wound_long_axis = 400;
+const int wound_short_axis = 300;
 const DP time_total = 200;//unit hr
 const DP time_step = 0.15;//unit hr
 const DP D_P = 0.5;
@@ -60,21 +62,26 @@ int main()
     int nSteps = (int)(time_total/time_step)+1;
 
     Chemokine PDGF(xstep,ystep,1.0,D_P,decay_P);
-    PDGF.initialize(wound_radius);
+    //PDGF.initialize(wound_radius);
+    PDGF.initialize_rectangle(800, 600);
   
 #ifdef ANGIOGENESIS 
     Chemokine VEGF(xstep,ystep,1.0,D_V,decay_V);
     VEGF.initialize(wound_radius); 
+    //VEGF.initialize(400, 300); 
 #endif
 //****************setup the discrete part of the model**************************
     cout << "**********************************************************************" << endl;
     cout << "****************setup the discrete part of the model*****************" << endl;
     cout << "**********************************************************************" << endl;
-    Flist fibroblastList(xstep, ystep, FDensity);
+    Flist fibroblastList(xstep, ystep);
+    //fibroblastList.initialize(FDensity, wound_radius);
+    fibroblastList.initialize_rectangle(FDensity, 800, 600);
             
     ECM extraCellularMatrix(ystep,xstep);
-    extraCellularMatrix.initialize(wound_radius);
-
+    //extraCellularMatrix.initialize(wound_radius);
+    extraCellularMatrix.initialize_rectangle(800, 600);
+    
 #ifdef ANGIOGENESIS 
     EdgePtr edgeList = NULL;
     NodePtr nodeList = NULL;
@@ -105,7 +112,7 @@ int main()
         //**********collagen_alignment**************************************************       
 #ifdef MECHANICS
         extraCellularMatrix.collagen_orientation(fibroblastList, elastic_problem_2d.tissue_displacement_x, 
-                                                                 elastic_problem_2d.tissue_displacement_y, time_step);
+                                                     elastic_problem_2d.tissue_displacement_y, time_step);
 #else
         extraCellularMatrix.collagen_orientation_with_fibroblast(fibroblastList, time_step);
 #endif
