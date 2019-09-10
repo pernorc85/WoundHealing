@@ -88,6 +88,7 @@ public:
 private:
     void setup_system ();
     void assemble_system (const Mat_DP&, const Mat_DP&, const Mat_DP&);
+    void make_constraints();
     void solve ();
     void refine_grid ();
     void output_deformation_profile ();
@@ -101,6 +102,7 @@ private:
     FESystem<dim>        fe;
 
     ConstraintMatrix     hanging_node_constraints;
+    ConstraintMatrix     constraints;
 
     SparsityPattern      sparsity_pattern;
     SparseMatrix<double> system_matrix;

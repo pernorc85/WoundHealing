@@ -52,37 +52,86 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
   double dx=1,dy=1;
   double value0,value1;
 
-  int type = 1;
 
   double theta, speed;
+  if(p(0) == 0)
+      value0 = (fb_density(p(1),p(0)+dx)-fb_density(p(1),p(0)))/dx;
+  else if(p(0) == xstep)
+      value0 = (fb_density(p(1),p(0))-fb_density(p(1),p(0)-dx))/dx;
+  else  value0 = (fb_density(p(1),p(0)+dx)-fb_density(p(1),p(0)-dx))/2/dx;
+  
+  if(p(1) == 0)    
+      value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1),p(0)))/dy;
+  else if(p(1) == ystep)
+      value1 = (fb_density(p(1),p(0))-fb_density(p(1)-dy,p(0)))/dy;
+  else value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1)-dy,p(0)))/2/dy;
+  
+  speed = speedfield[(int)p(1)][(int)p(0)]; 
+  theta = thetafield[(int)p(1)][(int)p(0)]; 
+  value0 = value0*50 + 3*fb_density(p(1),p(0))*speed/15*cos(theta);
+  value1 = value1*50 + 3*fb_density(p(1),p(0))*speed/15*sin(theta);
+
+  int type = 2;
   double dist;
   switch(type){
-      case 0: 
-          if(p(0) == 0)
-              value0 = (fb_density(p(1),p(0)+dx)-fb_density(p(1),p(0)))/dx;
-          else if(p(0) == xstep)
-              value0 = (fb_density(p(1),p(0))-fb_density(p(1),p(0)-dx))/dx;
-          else  value0 = (fb_density(p(1),p(0)+dx)-fb_density(p(1),p(0)-dx))/2/dx;
-  
-  
-          if(p(1) == 0)    
-              value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1),p(0)))/dy;
-          else if(p(1) == ystep)
-              value1 = (fb_density(p(1),p(0))-fb_density(p(1)-dy,p(0)))/dy;
-          else value1 = (fb_density(p(1)+dy,p(0))-fb_density(p(1)-dy,p(0)))/2/dy;
-  
-          speed = speedfield[(int)p(1)][(int)p(0)]; 
-          theta = thetafield[(int)p(1)][(int)p(0)]; 
-          values(0) = value0*50 + 3*fb_density(p(1),p(0))*speed/15*cos(theta);
-          values(1) = value1*50 + 3*fb_density(p(1),p(0))*speed/15*sin(theta);
+      case 0:
+          //skin tension field in last paper
+          if(sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.2, 2.0))<700 && p(0)<xstep*0.5 && p(1)<ystep*0.5){
+              dist = sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.2, 2.0));
+              values(0) = -0.6*(p(0)-xstep*0.2)/dist;
+              values(1) = -0.6*(p(1)-ystep*0.2)/dist;
+          } else if(sqrt(pow(p(0)-xstep*0.2, 2.0) + pow(p(1)-ystep*0.8, 2.0))<700 && p(0)<xstep*0.5 && p(1)>ystep*0.5){
+              dist = sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.8, 2.0));
+              values(0) = -0.6*(p(0)-xstep*0.2)/dist;
+              values(1) = -0.6*(p(1)-ystep*0.8)/dist;
+          } else if(sqrt(pow(p(0)-xstep*0.8, 2.0) + pow(p(1)-ystep*0.2, 2.0))<700 && p(0)>xstep*0.5 && p(1)<ystep*0.5){
+              dist = sqrt(pow(p(0)-xstep*0.8, 2.0)+pow(p(1)-ystep*0.2, 2.0));
+              values(0) = -0.6*(p(0)-xstep*0.8)/dist;
+              values(1) = -0.6*(p(1)-ystep*0.2)/dist;
+          } else if(sqrt(pow(p(0)-xstep*0.8, 2.0) + pow(p(1)-ystep*0.8, 2.0))<700 && p(0)>xstep*0.5 && p(1)>ystep*0.5){
+              dist = sqrt(pow(p(0)-xstep*0.8, 2.0)+pow(p(1)-ystep*0.8, 2.0));
+              values(0) = -0.6*(p(0)-xstep*0.8)/dist;
+              values(1) = -0.6*(p(1)-ystep*0.8)/dist;
+          } else {
+              values(0) = 0.0;
+              values(1) = 0.0;
+          } 
+          values(0) += value0;
+          values(1) += value1;
           break;
 
       case 1:
-          //skin tension field A
+          //skin tension field A 
+          if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
+              values(0) = 0.0;
+              values(1) = 10 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.4, 2) + pow(p(1)-ystep*0.4, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.4, 2) + pow(p(1)-ystep*0.4, 2) );
+              values(0) = 0.0;
+              values(1) = -10 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
+              values(0) = 0.0;
+              values(1) = 10 * (1 - dist*0.02);
+          } else if (pow(p(0)-xstep*0.8, 2) + pow(p(1)-ystep*0.4, 2) < 50*50){
+              dist = sqrt( pow(p(0)-xstep*0.8, 2) + pow(p(1)-ystep*0.4, 2) );
+              values(0) = 0.0;
+              values(1) = -10 * (1 - dist*0.02);
+          } else {
+              values(0) = 0.0;
+              values(1) = 0.0;
+          }
+          values(0) += value0;
+          values(1) += value1;
+          break;
+
+      case 2:
+          //skin tension field B 
           if(pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) < 50*50){
               dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) );
               values(0) = -1 * (1 - dist*0.02);
-              values(1) = 0;//-1 * (1 - dist*0.02);
+              values(1) = -1 * (1 - dist*0.02);
           } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) < 50*50){
               dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) );
               values(0) = 1 * (1 - dist*0.02);
@@ -95,29 +144,15 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
               dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
               values(0) = 1 * (1 - dist*0.02);
               values(1) = 1 * (1 - dist*0.02);
+          } else {
+              values(0) = 0.0;
+              values(1) = 0.0;
           }
+          //values(0) += value0;
+          //values(1) += value1;
           break;
  
-      case 2:
-          //skin tension field B
-          if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
-              dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = 0.0;
-              values(1) = 5 * (1 - dist*0.02);
-          } else if (pow(p(0)-xstep*0.4, 2) + pow(p(1)-ystep*0.4, 2) < 50*50){
-              dist = sqrt( pow(p(0)-xstep*0.4, 2) + pow(p(1)-ystep*0.4, 2) );
-              values(0) = 0.0;
-              values(1) = -5 * (1 - dist*0.02);
-          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
-              dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = 0.0;
-              values(1) = 5 * (1 - dist*0.02);
-          } else if (pow(p(0)-xstep*0.8, 2) + pow(p(1)-ystep*0.4, 2) < 50*50){
-              dist = sqrt( pow(p(0)-xstep*0.8, 2) + pow(p(1)-ystep*0.4, 2) );
-              values(0) = 0.0;
-              values(1) = -5 * (1 - dist*0.02);
-          } 
-          break;
+   
   } // end of switch
  
   //values(0) = d/dx*(10^-4N/cell*0.001cell/um^2*fb_density) = d/dx* fb_density * 100kPa
@@ -287,16 +322,19 @@ template <int dim>
 void ElasticProblem<dim>::setup_system ()
 {
   dof_handler.distribute_dofs (fe);
+  make_constraints();
   hanging_node_constraints.clear ();
   DoFTools::make_hanging_node_constraints (dof_handler,
 					   hanging_node_constraints);
   hanging_node_constraints.close ();
+  constraints.merge(hanging_node_constraints, ConstraintMatrix::MergeConflictBehavior::left_object_wins);
+  constraints.close(); 
   sparsity_pattern.reinit (dof_handler.n_dofs(),
 			   dof_handler.n_dofs(),
 			   dof_handler.max_couplings_between_dofs());
   DoFTools::make_sparsity_pattern (dof_handler, sparsity_pattern);
 
-  hanging_node_constraints.condense (sparsity_pattern);
+  constraints.condense (sparsity_pattern);
 
   sparsity_pattern.compress();
 
@@ -422,6 +460,7 @@ void ElasticProblem<dim>::assemble_system (const Mat_DP& collagen, const Mat_DP&
 
       fe_values.reinit (cell);
       
+      cell->get_dof_indices (local_dof_indices);
 				       // Next we get the values of
 				       // the coefficients at the
 				       // quadrature points. Likewise
@@ -727,19 +766,18 @@ lambda      0  0  lambda+2mu
 				       // right hand side, once we are
 				       // done with assembling the
 				       // entire linear system:
-      cell->get_dof_indices (local_dof_indices);
       for (unsigned int i=0; i<dofs_per_cell; ++i){
-	      for (unsigned int j=0; j<dofs_per_cell; ++j)
-	          system_matrix.add (local_dof_indices[i],local_dof_indices[j],cell_matrix(i,j));
-	      system_rhs(local_dof_indices[i]) += cell_rhs(i);
-	  }
+          for (unsigned int j=0; j<dofs_per_cell; ++j)
+	      system_matrix.add (local_dof_indices[i],local_dof_indices[j],cell_matrix(i,j));
+	  system_rhs(local_dof_indices[i]) += cell_rhs(i);
+      }
   }//end of cell loop
   cout << "total # of cell is:" << counter << endl;
   cout << "residue_total=" << residue_total <<endl;
   cout << "residue_max=" << residue_max <<endl;
   
-  hanging_node_constraints.condense (system_matrix);
-  hanging_node_constraints.condense (system_rhs);
+  constraints.condense (system_matrix);
+  constraints.condense (system_rhs);
 
 				   // The interpolation of the
 				   // boundary values needs a small
@@ -772,7 +810,34 @@ lambda      0  0  lambda+2mu
 				      system_rhs);
 }
 
-
+template <int dim>
+void ElasticProblem<dim>::make_constraints ()
+{
+  constraints.clear();
+  std::vector<bool> dof_touched(dof_handler.n_dofs(), false);
+  typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(),
+						 endc = dof_handler.end();
+  
+  cout << "dofs_per_cell = " << fe.dofs_per_cell << endl;
+  std::vector<unsigned int> local_dof_indices(fe.dofs_per_cell);
+  for (; cell != endc; ++cell) {
+      cell->get_dof_indices (local_dof_indices);
+      Point<dim> cell_center = cell->center();
+      //cout << "cell center: " << cell_center(0) << ", " << cell_center(1) << endl;
+      if (abs(cell_center(0) - 0.25 * xstep) < 50.0 and
+              cell_center(1) > 0.25 * ystep and cell_center(1) < 0.75 * ystep){
+          cout << "found cell to constrain" << endl;
+          for(unsigned int dof_index : local_dof_indices) {
+              if (dof_touched[dof_index] == false) {
+                  dof_touched[dof_index] = true;
+                  constraints.add_line(dof_index);
+                  constraints.set_inhomogeneity(dof_index, 0.0);//
+              }
+          }
+      }
+  }
+  constraints.close();
+}
 
 //{ElasticProblem::solve}
 
@@ -799,7 +864,7 @@ void ElasticProblem<dim>::solve ()
   cg.solve (system_matrix, solution, system_rhs,
 	    preconditioner);
   
-  hanging_node_constraints.distribute (solution);
+  constraints.distribute (solution);
   cout << "  solution aft=" << solution(1000) << endl;
 }
 
