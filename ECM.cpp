@@ -114,34 +114,35 @@ void ECM::initialize(int wound_radius){
 
 void ECM::collagen_orientation(Flist& fList, const Mat_DP& tdx, const Mat_DP& tdy, double time_step) {
     collagen_orientation_with_fibroblast(fList, time_step);
+    collagen_production(fList, time_step);
     collagen_orientation_under_tension(tdx, tdy, time_step);
     return;
 }
 
-void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double time_step)
-{
+void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double time_step) {
     int L = 30;
     DP ftheta;
     DP omega, omegasum;
     DP kappa1 = 5, kappa2 = 5;
-    DP pc = 0.44, dc = 0.44, df = 0.6;
 
     for(size_t i=0; i<ECM_ystep/10; i++){//from bottom up
         for(size_t j=0; j<ECM_xstep/10; j++){//from left to right
             ftheta = 0;
             omegasum = 0;
-            std::list<Fibroblast>::iterator curPtr = fibroblastList.mFCells.begin();
             //TODO: This needs acceleration
             //     Going through the entire list of fibroblasts is too slow for 5mm x 5mm modeling space
-            for(; curPtr != fibroblastList.mFCells.end(); curPtr++){
+            for(auto &item : fibroblastList.mFCellMap){
                 //if(abs(curPtr->yy-i*10)<=L && abs(curPtr->xx-j*10)<=L)
                 //    omega = (1-abs(curPtr->yy-i*10)/L) * (1-abs(curPtr->xx-j*10)/L);
-                double dist = sqrt( pow(curPtr->yy-i*10, 2) + pow(curPtr->xx-j*10, 2) );
+                DP cell_yy = item.second.yy;
+                DP cell_xx = item.second.xx;
+                DP cell_theta = item.second.theta;
+                double dist = sqrt( pow(cell_yy-i*10, 2) + pow(cell_xx-j*10, 2) );
                 omega = (dist <=L)? 1-dist/L : 0;
                 omegasum += omega;
                 //be maticulous here-----------------------------------------------
                 if(omega != 0){
-                    DP f_taken = curPtr->theta;
+                    DP f_taken = cell_theta;
                     while(abs(f_taken - collagen[i][j]) > M_PI/2) {
                         if(f_taken > collagen[i][j])
                             f_taken -= M_PI;
@@ -183,14 +184,20 @@ void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double tim
             
         }
     } 
+}
           
+void ECM::collagen_production(Flist& fibroblastList, double time_step) {
+    int L = 30;
+    DP pc = 0.44, dc = 0.44, df = 0.6;
+    DP omega, omegasum;
     for(size_t i=0; i<ECM_ystep/5; i++){//from bottom up
         for(size_t j=0; j<ECM_xstep/5; j++){//from left to right
             omegasum = 0;
-            std::list<Fibroblast>::iterator curPtr = fibroblastList.mFCells.begin();
-            for(; curPtr != fibroblastList.mFCells.end(); curPtr++){
-                if(abs(curPtr->yy-i*5)<=L && abs(curPtr->xx-j*5)<=L)
-                    omega = (1-abs(curPtr->yy-i*5)/L) * (1-abs(curPtr->xx-j*5)/L);
+            for(auto &item : fibroblastList.mFCellMap){
+                DP cell_yy = item.second.yy;
+                DP cell_xx = item.second.xx;
+                if(abs(cell_yy-i*5)<=L && abs(cell_xx-j*5)<=L)
+                    omega = (1-abs(cell_yy-i*5)/L) * (1-abs(cell_xx-j*5)/L);
                 else omega = 0;
                 omegasum += omega;
             } 
@@ -248,6 +255,7 @@ void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x
             //reorientation only happens when stretch > 1.2
             double stretch1, stretch2, tensiontheta;
             std::tie(stretch1, stretch2, tensiontheta) = calculate_principal_strain(F);
+            tensionfield[i][j] = tensiontheta;
             stretch_history[i][j] *= 0.95;
             if(stretch1 > 1.2){
                 stretch_history[i][j] += 1.0; 
@@ -279,7 +287,64 @@ void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x
             } 
         }
     }
+
     return;                                                        
+}
+
+void ECM::output_tension(){
+    const DP dl=1.0;
+    DP x,y,xnew,ynew;
+    Mat_DP vf(ECM_ystep,ECM_xstep); 
+    
+    srand(time(NULL));
+    for(int i=0;i<ECM_ystep;i++){
+        for(int j=0;j<ECM_xstep;j++){            
+            vf[i][j] = 0;                      
+        }       
+    }
+                
+    for(int i=0; i<ECM_ystep/10; i++){ 
+        for(int j=0; j<ECM_xstep/20; j++){
+            y = i*10;
+            x = j*20;
+            if(i%2 == 1) x += 10;
+            for(int k=0; k<80; k++){
+                //printf("x = %f, y = %f\n",x,y);                
+                xnew = x + dl*cos(tensionfield[int(y/10)][int(x/10)]);
+                if(xnew < 0)xnew = 0;
+                if(xnew > ECM_xstep-1)xnew = ECM_xstep-1;
+                ynew = y + dl*sin(tensionfield[int(y/10)][int(x/10)]);
+                if(ynew < 0)ynew= 0;
+                if(ynew > ECM_ystep-1)ynew = ECM_ystep-1;
+                x = xnew;
+                y = ynew;
+                vf[(int)y][(int)x] = 2.0;                
+            }
+            y = i*10;
+            x = j*20;    
+            if(i%2 == 1) x += 10;
+            for(int k=0; k<20; k++){
+                xnew = x - dl*cos(tensionfield[int(y/10)][int(x/10)]); 
+                if(xnew < 0)xnew = 0;
+                if(xnew > ECM_xstep-1)xnew = ECM_xstep-1;
+                ynew = y - dl*sin(tensionfield[int(y/10)][int(x/10)]);
+                if(ynew < 0)ynew = 0;
+                if(ynew > ECM_ystep-1)ynew = ECM_ystep-1;
+                x = xnew;
+                y = ynew;
+                vf[(int)y][(int)x] = 2.0;
+            }
+        }
+    }
+    
+    //************output to picture*****************************************
+    //Ö»Êä³öÒ»·ùÍ¼ 
+    static int out_i = 0;
+    char file_name[21];
+    sprintf(file_name, "output/PSLF%05d.BMP", out_i++);
+    BMP::output_BMP(file_name, 21, vf, ECM_xstep, ECM_ystep);
+    
+    return;
 }
 
 void ECM::output_collagen(Flist& fibroblastList){
@@ -295,10 +360,10 @@ void ECM::output_collagen(Flist& fibroblastList){
         }       
     }
                 
-    for(int j=0; j<ECM_ystep/10; j++){ 
-        for(int l=0; l<ECM_xstep/10; l++){
-            y = j*10;
-            x = l*10;
+    for(int i=0; i<ECM_ystep/10; i++){ 
+        for(int j=0; j<ECM_xstep/10; j++){
+            y = i*10;
+            x = j*10;
             for(int k=0; k<80; k++){
                 //printf("x = %f, y = %f\n",x,y);                
                 xnew = x + dl*cos(collagen[int(y/10)][int(x/10)]);
@@ -311,8 +376,8 @@ void ECM::output_collagen(Flist& fibroblastList){
                 y = ynew;
                 vf[(int)y][(int)x] = collagen_density[(int)(y/5)][(int)(x/5)];                
             }
-            y = j*10;
-            x = l*10;    
+            y = i*10;
+            x = j*10;
             for(int k=0; k<20; k++){
                 xnew = x - dl*cos(collagen[int(y/10)][int(x/10)]); 
                 if(xnew < 0)xnew = 0;
@@ -335,13 +400,14 @@ void ECM::output_collagen(Flist& fibroblastList){
             cellmatrix[j][l] = 0;
         }
     }
-    std::list<Fibroblast>::iterator curPtr = fibroblastList.mFCells.begin();
-    for(; curPtr != fibroblastList.mFCells.end(); curPtr++){
-        cellmatrix[(int)curPtr->yy][(int)curPtr->xx] = 1;
-        if((int)curPtr->xx >= 2 && (int)curPtr->xx < ECM_xstep -2 &&
-           (int)curPtr->yy >= 2 && (int)curPtr->yy < ECM_ystep -2){
-            for(int j=(int)curPtr->yy-2; j<=(int)curPtr->yy+2; j++){
-                for(int l=(int)curPtr->xx-2; l<=(int)curPtr->xx+2; l++){
+    for(const auto &item : fibroblastList.mFCellMap){
+        DP cell_yy = item.second.yy;
+        DP cell_xx = item.second.xx;
+        cellmatrix[(int)cell_yy][(int)cell_xx] = 1;
+        if((int)cell_xx >= 2 && (int)cell_xx < ECM_xstep -2 &&
+           (int)cell_yy >= 2 && (int)cell_yy < ECM_ystep -2){
+            for(int j=(int)cell_yy-2; j<=(int)cell_yy+2; j++){
+                for(int l=(int)cell_xx-2; l<=(int)cell_xx+2; l++){
                     cellmatrix[j][l] = 1;
                 }
             } 

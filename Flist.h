@@ -6,6 +6,7 @@
 #include <cmath>
 #include <iostream> 
 #include <list>
+#include <map>
 #include "nr.h"
 using namespace std;
 
@@ -30,13 +31,13 @@ public:
    
     void Flist_move(Chemokine& PDGF,
                     ECM& extraCellularMatrix, DP time_step); 
-    void Fcell_move(std::list<Fibroblast>::iterator curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, 
+    void Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, 
                     Mat_DP& collagen_angle, DP time_step);
     void output_fibroblast();
     void output_flistFile();
 
 protected:
-    std::list<Fibroblast> mFCells;
+    std::map<int, Fibroblast> mFCellMap;
     DP speed;
     int mXstep, mYstep;
 
