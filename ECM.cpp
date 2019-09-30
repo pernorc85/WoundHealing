@@ -35,6 +35,9 @@ void ECM::initialize(double a/*major semi_axis*/, double b/*minor semi_axis*/){
             //ÓÃ360Ì«Âé·³ÁË£¬Ö±½ÓÓÃ180 
             collagen[i][j] = theta;
             stretch_history[i][j] = 0.0;
+            for(size_t k = 0; k < 18; k++) {
+                tensiontheta_bins_history[k][i][j] = 0.0;
+            }
         }
     } 
 }
@@ -113,7 +116,7 @@ void ECM::initialize(int wound_radius){
 }
 
 void ECM::collagen_orientation(Flist& fList, const Mat_DP& tdx, const Mat_DP& tdy, double time_step) {
-    collagen_orientation_with_fibroblast(fList, time_step);
+    //collagen_orientation_with_fibroblast(fList, time_step);
     collagen_production(fList, time_step);
     collagen_orientation_under_tension(tdx, tdy, time_step);
     return;
@@ -245,10 +248,10 @@ void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x
             F[0][1] = tissue_displacement_x[(i+1)*10>=ECM_ystep ? i*10 : (i+1)*10][j*10] - tissue_displacement_x[(i-1)*10<0 ? 0 : (i-1)*10][j*10];
             F[1][0] = tissue_displacement_y[i*10][(j+1)*10>=ECM_xstep ? j*10 : (j+1)*10] - tissue_displacement_y[i*10][(j-1)*10<0 ? 0 : (j-1)*10];
             F[1][1] = tissue_displacement_y[(i+1)*10>=ECM_ystep ? i*10 : (i+1)*10][j*10] - tissue_displacement_y[(i-1)*10<0 ? 0 : (i-1)*10][j*10];
-            F[0][0] /= 20;
-            F[0][1] /= 20;
-            F[1][0] /= 20;
-            F[1][1] /= 20;
+            F[0][0] /= 20.0;
+            F[0][1] /= 20.0;
+            F[1][0] /= 20.0;
+            F[1][1] /= 20.0;
             F[0][0] += 1;
             F[1][1] += 1;
             //tissue is stretched if stretch > 1.0, compressed if stretch is < 1.0
@@ -257,24 +260,42 @@ void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x
             std::tie(stretch1, stretch2, tensiontheta) = calculate_principal_strain(F);
             tensionfield[i][j] = tensiontheta;
             stretch_history[i][j] *= 0.95;
+            for(size_t k = 0; k < 18; k++) {
+                tensiontheta_bins_history[k][i][j] *= 0.95;
+            }
+ 
             if(stretch1 > 1.2){
                 stretch_history[i][j] += 1.0; 
+                for(size_t k = 0; k < 18; k++) {
+                    if (tensiontheta > M_PI * double(k) / 18.0 && tensiontheta < M_PI * double(k+1) / 18.0 ) {
+                        tensiontheta_bins_history[k][i][j] += 1.0;
+                    }
+                } 
             }
             cout << "stretch1 = " << stretch1 << endl;
-            if(stretch_history[i][j] > 10.0){
+            DP tensiontheta_max_history = -1.0;
+            size_t tensiontheta_max_index = -1;
+            for(size_t k = 0; k < 18; k++) {
+                if (tensiontheta_bins_history[k][i][j] > tensiontheta_max_history) {
+                    tensiontheta_max_history = tensiontheta_bins_history[k][i][j];
+                    tensiontheta_max_index = k;
+                }
+            }  
+            if(tensiontheta_max_history > 8.0){
                 /*
                 if (stretch2 > 1.0) {//constraint tissue, collagen align perpendicular to principal strain line
                     tensiontheta += M_PI * 0.5;
                     if (tensiontheta > M_PI) tensiontheta -= M_PI;
                 }
                 */
-                cout << "tensiontheta = " << tensiontheta << endl;
+                cout << "tensiontheta_max_index = " << tensiontheta_max_index << endl;
                 DP increase; 
-                if(abs(tensiontheta-collagen[i][j])<=M_PI/2)
-                    increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta-collagen[i][j]);
-                else if(tensiontheta>M_PI/2)
-                    increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta-M_PI-collagen[i][j]);
-                else increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta+M_PI-collagen[i][j]);
+                DP tensiontheta_max = (tensiontheta_max_index + 0.5) / 18.0 * M_PI;
+                if(abs(tensiontheta_max-collagen[i][j]) <= M_PI/2)
+                    increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta_max-collagen[i][j]);
+                else if(tensiontheta_max > M_PI/2)
+                    increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta_max-M_PI-collagen[i][j]);
+                else increase = time_step * kappa2 * sqrt(stretch1) * sin(tensiontheta_max+M_PI-collagen[i][j]);
 
                 collagen[i][j] += increase;
                 cout <<"increase="<<increase<<endl;

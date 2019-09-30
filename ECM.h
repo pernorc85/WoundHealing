@@ -5,6 +5,7 @@
 #include <string>
 #include <cmath>
 #include <iostream> 
+#include <vector>
 #include "nr.h"
 using namespace std;
 
@@ -14,10 +15,15 @@ class ECM{
 public:
     ECM(int ystep,int xstep):
             ECM_ystep(ystep),ECM_xstep(xstep),
-            collagen(ystep/10, xstep/10),collagen_density(ystep/5, xstep/5),
+            collagen(ystep/10, xstep/10),
             tensionfield(ystep/10, xstep/10),
+            collagen_density(ystep/5, xstep/5),
             fibronectin_density(ystep/5, xstep/5),
-            stretch_history(ystep/10, xstep/10){};
+            stretch_history(ystep/10, xstep/10){
+                for(size_t i = 0; i < 18; i++) {
+                    tensiontheta_bins_history.emplace_back(Mat_DP(ystep/10, xstep/10));
+                }
+            };
     void initialize(int wound_radius);
     void initialize(double a, double b);
     void initialize_rectangle(double a, double b);
@@ -34,6 +40,7 @@ public:
 protected:    
     Mat_DP fibronectin_density;
     Mat_DP stretch_history;
+    vector<Mat_DP> tensiontheta_bins_history;//data intensive
     int ECM_ystep;
     int ECM_xstep;
     friend class Flist;
