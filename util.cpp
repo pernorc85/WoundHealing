@@ -10,13 +10,30 @@ double fb_density(double y, double x){
 }
 
 bool isOnWoundEdge(double x, double y, int mXstep, int mYstep) {
-    //return abs(abs(x-500.0)-500.0)<1.5 || abs(abs(y-500.0)-500.0) < 1.5;
-    return abs(sqrt(pow(x-mXstep/2,2)+pow(y-mYstep/2,2)) - 350.0) < 2.0;
+    double wound_length = 800, wound_width = 600;
+    return (abs(abs(x-mXstep/2)- wound_length/2)<1.5 and abs(y-mYstep/2) < wound_width/2) 
+           || (abs(abs(y-mYstep/2)-wound_width/2) < 1.5 and abs(x-mXstep/2) < wound_length/2);
+    //return abs(sqrt(pow(x-mXstep/2,2)+pow(y-mYstep/2,2)) - 350.0) < 2.0;
     //double a = 400, b = 300;
     //return abs(sqrt(pow(x-mXstep/2,2)+pow(a/b*(y-mYstep/2),2)) - a) < 2.0;
 }
 
 void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A);
+
+double get_theta(double x, double y){
+    double theta = -1;
+    if(x != 0){
+        if(x > 0 && y >= 0)theta = atan(y/x);//1st phase
+        else if(x < 0 && y >= 0)theta = M_PI + atan(y/x);//2nd phase
+        else if(x < 0 && y < 0)theta = M_PI + atan(y/x);//3nd phase
+        else if(x > 0 && y < 0)theta = 2*M_PI + atan(y/x);//4th phase
+    } else{
+         if(y > 0)theta =  M_PI/2;
+         else if(y < 0)theta = M_PI*3/2;
+         else theta = -1;
+    }
+    return theta;
+}
 
 void matrix_inverse(Mat_DP& F_inverse,Mat_DP F) {
      double det_F=F[0][0]*F[1][1]-F[0][1]*F[1][0];

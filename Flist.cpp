@@ -5,6 +5,7 @@
 #include "chemokine.h"
 #include "ECM.h"
 #include "BMP.h"
+#include "util.h"
 
 using namespace std;   
 
@@ -25,10 +26,10 @@ void Flist::initialize(int FDensity, int wound_radius){
         theta = (rand()%360)*M_PI/180.0;
         
         //if(pow(x-mXstep/2,2)+pow(y-mYstep,2) > 160000 || pow(x-mXstep,2)+pow(y-mYstep,2) < 90000 ){ 
-        if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= wound_radius*wound_radius){// || pow((x-mXstep/2)/0.3,2)+pow(y-mYstep/2,2) >=202500){                      
+        //if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= wound_radius*wound_radius){                
     	    mFCellMap.emplace(fid, Fibroblast(x,y, theta));
             fid++;    
-        }       
+        //}       
     }          
     return;
 }
@@ -86,7 +87,7 @@ void Flist::Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP c
 {
     DP rou1 = 0.3, rou2 = 0.4;
     //************************chemotaxis********************************************
-    DP gradtheta = -1;
+    DP gradtheta = get_theta(gradx, grady);
     DP speed_taken = speed;
     
     if(cdensity < 0.7)speed_taken = speed * (1 + 2*fdensity)/3;
@@ -97,16 +98,6 @@ void Flist::Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP c
     rou1=rou1*grad;
     rou2=rou2*cdensity;
     //cout<<"rou2="<<rou2<<endl;
-    if(gradx != 0){
-        if(gradx > 0 && grady >= 0)gradtheta = atan(grady/gradx);//1st phase 
-        else if(gradx < 0 && grady >= 0)gradtheta = M_PI + atan(grady/gradx);//2nd phase
-        else if(gradx < 0 && grady < 0)gradtheta = M_PI + atan(grady/gradx);//3nd phase
-        else if(gradx > 0 && grady < 0)gradtheta = 2*M_PI + atan(grady/gradx);//4th phase
-    } else{
-         if(grady > 0)gradtheta =  M_PI/2;
-         else if(grady < 0)gradtheta = M_PI*3/2;
-         else gradtheta = -1;
-    }    
     
     //***********************guidance of collagen***********************************      
     int gridy,gridx;

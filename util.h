@@ -5,6 +5,7 @@
 double fb_density(double y, double x);
 bool isOnWoundEdge(double x, double y, int mXstep, int mYstep);
 
+double get_theta(double x, double y);
 void matrix_inverse(Mat_DP& F_inverse,Mat_DP F);
 Mat_DP transpose(Mat_DP F);
 Mat_DP multiply(Mat_DP A, Mat_DP B);
