@@ -12,9 +12,14 @@ using namespace std;
 void ECM::initialize(double a/*major semi_axis*/, double b/*minor semi_axis*/){
     int i,j;
     double c =sqrt(a*a - b*b);
+    double xcenter = ECM_xstep * 0.5;
+    double ycenter = ECM_ystep * 0.5;
     for(i=0; i<ECM_ystep/5; i++){//from bottom up
         for(j=0; j<ECM_xstep/5; j++){
-            double dist_from_focus = sqrt(pow(j*5-ECM_xstep/2, 2) + pow(a/b*(i*5-ECM_ystep/2), 2)); 
+            double grid_cx = j*5 + 2.5;//j*5 represent collagen_density grid starting at j*5, 
+                                             //so its center is at j*5 + 2.5
+            double grid_cy = i*5 + 2.5;
+            double dist_from_focus = sqrt(pow(grid_cx-xcenter, 2) + pow(a/b*(grid_cy-ycenter), 2)); 
             if(dist_from_focus > a + 50) {
                 collagen_density[i][j] = 1.0;
                 fibronectin_density[i][j] = 0.0;
@@ -47,17 +52,20 @@ void ECM::initialize_rectangle(double a, double b){
     float ycenter = ECM_ystep * 0.5;
     for(int i=0; i<ECM_ystep/5; i++){//from bottom up
         for(int j=0; j<ECM_xstep/5; j++){
-            if(abs(j*5-xcenter)>a*0.5+50 || abs(i*5-ycenter)>b*0.5+50) {
+            double grid_cx = j*5 + 2.5;//j*5 represent collagen_density grid starting at j*5, 
+                                             //so its center is at j*5 + 2.5
+            double grid_cy = i*5 + 2.5;
+            if(abs(grid_cx-xcenter)>a*0.5+50 || abs(grid_cy-ycenter)>b*0.5+50) {
                 collagen_density[i][j] = 1.0;
                 fibronectin_density[i][j] = 0.0;
-            } else if(abs(j*5-xcenter)>a*0.5-50 || abs(i*5-ycenter)>b*0.5-50) {
-                if(abs(j*5-xcenter)<=a*0.5+50 && abs(j*5-xcenter)>a*0.5-50){ 
-                    double frame = abs(j*5-xcenter) - a*0.5;
+            } else if(abs(grid_cx-xcenter)>a*0.5-50 || abs(grid_cy-ycenter)>b*0.5-50) {
+                if(abs(grid_cx-xcenter)<=a*0.5+50 && abs(grid_cx-xcenter)>a*0.5-50){ 
+                    double frame = abs(grid_cx-xcenter) - a*0.5;
                     collagen_density[i][j] = sin( frame*0.02 * M_PI/2 )*0.5 + 0.5;
                     fibronectin_density[i][j] = 1 - collagen_density[i][j];
                 }
-                if(abs(i*5-ycenter)<=b*0.5+50 && abs(i*5-ycenter)>b*0.5-50){
-                    double frame = abs(i*5-ycenter) - b*0.5;
+                if(abs(grid_cy-ycenter)<=b*0.5+50 && abs(grid_cy-ycenter)>b*0.5-50){
+                    double frame = abs(grid_cy-ycenter) - b*0.5;
                     double tmp = sin( frame*0.02 * M_PI/2 )*0.5 + 0.5;
                     if(tmp > collagen_density[i][j]) {
                         collagen_density[i][j] = tmp; 
@@ -68,6 +76,8 @@ void ECM::initialize_rectangle(double a, double b){
                 collagen_density[i][j] = 0.0;
                 fibronectin_density[i][j] = 1.0;
             }
+            //collagen_density[i][j] = 1.0;
+            //fibronectin_density[i][j] = 0.0;
         }
     }
 
@@ -87,7 +97,10 @@ void ECM::initialize(int wound_radius){
     DP theta;
     for(i=0;i<ECM_ystep/5;i++){//from bottom up
         for(j=0;j<ECM_xstep/5;j++){//from left to right
-            double dist_from_center = sqrt(pow(j*5-ECM_xstep/2, 2) + pow(i*5-ECM_ystep/2, 2));
+            double grid_cx = j*5 + 2.5;//j*5 represent collagen_density grid starting at j*5, 
+                                             //so its center is at j*5 + 2.5
+            double grid_cy = i*5 + 2.5;
+            double dist_from_center = sqrt(pow(grid_cx-ECM_xstep/2, 2) + pow(grid_cy-ECM_ystep/2, 2));
             if(dist_from_center >= wound_radius + 50){
                 collagen_density[i][j] = 1; 
                 fibronectin_density[i][j] = 0;
@@ -130,6 +143,9 @@ void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double tim
 
     for(size_t i=0; i<ECM_ystep/10; i++){//from bottom up
         for(size_t j=0; j<ECM_xstep/10; j++){//from left to right
+            double grid_cx = j*10 + 5;//j*5 represent collagen_orientation grid starting at j*10, 
+                                             //so its center is at j*10 + 5
+            double grid_cy = i*10 + 5;
             ftheta = 0;
             omegasum = 0;
             //TODO: This needs acceleration
@@ -140,7 +156,7 @@ void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double tim
                 DP cell_yy = item.second.yy;
                 DP cell_xx = item.second.xx;
                 DP cell_theta = item.second.theta;
-                double dist = sqrt( pow(cell_yy-i*10, 2) + pow(cell_xx-j*10, 2) );
+                double dist = sqrt( pow(cell_yy-grid_cy, 2) + pow(cell_xx-grid_cx, 2) );
                 omega = (dist <=L)? 1-dist/L : 0;
                 omegasum += omega;
                 //be maticulous here-----------------------------------------------
@@ -195,12 +211,15 @@ void ECM::collagen_production(Flist& fibroblastList, double time_step) {
     DP omega, omegasum;
     for(size_t i=0; i<ECM_ystep/5; i++){//from bottom up
         for(size_t j=0; j<ECM_xstep/5; j++){//from left to right
+            double grid_cx = j*5 + 2.5;//j*5 represent collagen_density grid starting at j*5, 
+                                             //so its center is at j*5 + 2.5
+            double grid_cy = i*5 + 2.5;
             omegasum = 0;
             for(auto &item : fibroblastList.mFCellMap){
                 DP cell_yy = item.second.yy;
                 DP cell_xx = item.second.xx;
-                if(abs(cell_yy-i*5)<=L && abs(cell_xx-j*5)<=L)
-                    omega = (1-abs(cell_yy-i*5)/L) * (1-abs(cell_xx-j*5)/L);
+                if(abs(cell_yy-grid_cy)<=L && abs(cell_xx-grid_cx)<=L)
+                    omega = (1-abs(cell_yy-grid_cy)/L) * (1-abs(cell_xx-grid_cx)/L);
                 else omega = 0;
                 omegasum += omega;
             } 
