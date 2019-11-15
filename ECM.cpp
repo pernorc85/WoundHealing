@@ -129,7 +129,7 @@ void ECM::initialize(int wound_radius){
 }
 
 void ECM::collagen_orientation(Flist& fList, const Mat_DP& tdx, const Mat_DP& tdy, double time_step) {
-    //collagen_orientation_with_fibroblast(fList, time_step);
+    collagen_orientation_with_fibroblast(fList, time_step);
     collagen_production(fList, time_step);
     collagen_orientation_under_tension(tdx, tdy, time_step);
     return;
@@ -331,6 +331,43 @@ void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x
     return;                                                        
 }
 
+void ECM::detect_tension_field_singularity(){
+    double center_x, center_y, x, y;
+    double eta;
+    double radius = 30;
+    for(int i=1; i<ECM_ystep/10; i++){
+        for(int j=1; j<ECM_xstep/10; j++){
+            center_y = i*10;
+            center_x = j*10;
+            vector<double> tension_theta;
+            for(int k=0; k<12; k++){
+                eta = k*M_PI/6.0 + M_PI/12.0;
+                x = center_x + radius * cos(eta);
+                y = center_y + radius * sin(eta);
+                if(x < 0.0 or y < 0.0 or x >= ECM_xstep or y>= ECM_ystep) continue;
+                tension_theta.push_back( tensionfield[int(y/10)][int(x/10)] );
+            }
+            double sum_dtheta = 0.0;
+            for(int k=0; k<tension_theta.size(); k++){
+                double dtheta = tension_theta[(k+1)%tension_theta.size()] - tension_theta[k];
+                while(dtheta > 0.5 * M_PI) {
+                    dtheta -= M_PI;
+                }
+                while(dtheta < -0.5 * M_PI) {
+                    dtheta += M_PI;
+                } 
+                sum_dtheta += dtheta;
+            }
+            if(abs(sum_dtheta) > 1e-2){
+                cout << endl << "Singular point detected! sum_dtheta = " << sum_dtheta << endl;
+                mTensionFieldSingularPoints.push_back(make_pair(j*10, i*10));
+            }
+        }
+    }
+    cin >> radius;
+    return;                
+}
+
 void ECM::output_tension(){
     const DP dl=1.0;
     DP x,y,xnew,ynew;
@@ -377,12 +414,33 @@ void ECM::output_tension(){
         }
     }
     
+    Mat_DP singular_point_matrix(ECM_ystep,ECM_xstep); 
+    
+    for(int j=0; j<ECM_ystep; j++){
+        for(int l=0; l<ECM_xstep; l++){
+            singular_point_matrix[j][l] = 0;
+        }
+    }
+    for(auto &item : mTensionFieldSingularPoints){
+        DP singular_yy = item.second;
+        DP singular_xx = item.first;
+        singular_point_matrix[(int)singular_yy][(int)singular_xx] = 1;
+        if((int)singular_xx >= 2 && (int)singular_xx < ECM_xstep -2 &&
+           (int)singular_yy >= 2 && (int)singular_yy < ECM_ystep -2){
+            for(int j=(int)singular_yy-2; j<=(int)singular_yy+2; j++){
+                for(int l=(int)singular_xx-2; l<=(int)singular_xx+2; l++){
+                    singular_point_matrix[j][l] = 1;
+                }
+            } 
+        }
+        //cout << (int)curPtr->xx << (int)curPtr->yy << endl;
+    }
     //************output to picture*****************************************
     //Ö»Êä³öÒ»·ùÍ¼ 
     static int out_i = 0;
     char file_name[21];
     sprintf(file_name, "output/PSLF%05d.BMP", out_i++);
-    BMP::output_BMP(file_name, 21, vf, ECM_xstep, ECM_ystep);
+    BMP::output_BMP2(file_name, 21, vf, singular_point_matrix, ECM_xstep, ECM_ystep);
     
     return;
 }

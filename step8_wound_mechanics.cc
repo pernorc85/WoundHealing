@@ -72,25 +72,25 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
   value0 = value0*50 + 3*fb_density(p(1),p(0))*speed/15*cos(theta);
   value1 = value1*50 + 3*fb_density(p(1),p(0))*speed/15*sin(theta);
 
-  int type = 3;
+  int type = 2;
   double s = 1.0;//default = 1.0
   double dist;
   switch(type){
       case 0:
           //skin tension field in last paper
-          if(sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.2, 2.0))<700 && p(0)<xstep*0.5 && p(1)<ystep*0.5){
+          if(sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.2, 2.0))<500 && p(0)<xstep*0.5 && p(1)<ystep*0.5){
               dist = sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.2, 2.0));
               values(0) = -0.6*(p(0)-xstep*0.2)/dist;
               values(1) = -0.6*(p(1)-ystep*0.2)/dist;
-          } else if(sqrt(pow(p(0)-xstep*0.2, 2.0) + pow(p(1)-ystep*0.8, 2.0))<700 && p(0)<xstep*0.5 && p(1)>ystep*0.5){
+          } else if(sqrt(pow(p(0)-xstep*0.2, 2.0) + pow(p(1)-ystep*0.8, 2.0))<500 && p(0)<xstep*0.5 && p(1)>ystep*0.5){
               dist = sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.8, 2.0));
               values(0) = -0.6*(p(0)-xstep*0.2)/dist;
               values(1) = -0.6*(p(1)-ystep*0.8)/dist;
-          } else if(sqrt(pow(p(0)-xstep*0.8, 2.0) + pow(p(1)-ystep*0.2, 2.0))<700 && p(0)>xstep*0.5 && p(1)<ystep*0.5){
+          } else if(sqrt(pow(p(0)-xstep*0.8, 2.0) + pow(p(1)-ystep*0.2, 2.0))<500 && p(0)>xstep*0.5 && p(1)<ystep*0.5){
               dist = sqrt(pow(p(0)-xstep*0.8, 2.0)+pow(p(1)-ystep*0.2, 2.0));
               values(0) = -0.6*(p(0)-xstep*0.8)/dist;
               values(1) = -0.6*(p(1)-ystep*0.2)/dist;
-          } else if(sqrt(pow(p(0)-xstep*0.8, 2.0) + pow(p(1)-ystep*0.8, 2.0))<700 && p(0)>xstep*0.5 && p(1)>ystep*0.5){
+          } else if(sqrt(pow(p(0)-xstep*0.8, 2.0) + pow(p(1)-ystep*0.8, 2.0))<500 && p(0)>xstep*0.5 && p(1)>ystep*0.5){
               dist = sqrt(pow(p(0)-xstep*0.8, 2.0)+pow(p(1)-ystep*0.8, 2.0));
               values(0) = -0.6*(p(0)-xstep*0.8)/dist;
               values(1) = -0.6*(p(1)-ystep*0.8)/dist;
@@ -105,7 +105,8 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
       case 1:{
           //skin tension field A 
           int index = int(current_time / 15.0);
-          double sign = index%2 == 0 ? 1 : (-1); 
+          //double sign = index%2 == 0 ? 1 : (-1);
+          double sign = 1.0;
           if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
               dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
               values(0) = 0.0;
@@ -134,24 +135,23 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
       case 2:{
           //skin tension field B 
           int index = int(current_time / 15.0);
-          //double sign = index%2 == 0 ? 1 : (-1);
-          double sign = 1.0;
+          double sign = 1;//index%2 == 0 ? 1 : (-1);
           if(pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) < 50*50){
               dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) );
-              values(0) = sign * (-s) * 5 * (1 - dist*0.02);
-              values(1) = sign * (-s) * 5 * (1 - dist*0.02);
+              values(0) = sign * (-s) * 7.5 * (1 - dist*0.02);
+              values(1) = sign * (-s) * 7.5 * (1 - dist*0.02);
           } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) < 50*50){
               dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) );
-              values(0) = sign * s * 5 * (1 - dist*0.02);
-              values(1) = sign* (-s) * 5 * (1 - dist*0.02);
+              values(0) = sign * s * 7.5 * (1 - dist*0.02);
+              values(1) = sign* (-s) * 7.5 * (1 - dist*0.02);
           } else if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
               dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = sign * (-s) * 5 * (1 - dist*0.02);
-              values(1) = sign * s * 5 * (1 - dist*0.02);
+              values(0) = sign * (-s) * 7.5 * (1 - dist*0.02);
+              values(1) = sign * s * 7.5 * (1 - dist*0.02);
           } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
               dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = sign * s * 5 * (1 - dist*0.02);
-              values(1) = sign * s * 5 * (1 - dist*0.02);
+              values(0) = sign * s * 7.5 * (1 - dist*0.02);
+              values(1) = sign * s * 7.5 * (1 - dist*0.02);
           } else {
               values(0) = 0.0;
               values(1) = 0.0;
@@ -163,10 +163,10 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
       case 3:{
           values(0) = 0.0;
           values(1) = 0.0;
-          if(pow(p(0)-xstep*0.5, 2) + pow(p(1)-ystep*0.5, 2) > 650*650 and
-                  pow(p(0)-xstep*0.5, 2) + pow(p(1)-ystep*0.5, 2) < 700*700 ){
+          if(pow(p(0)-xstep*0.5, 2) + pow(p(1)-ystep*0.5, 2) > 700*700 and
+                  pow(p(0)-xstep*0.5, 2) + pow(p(1)-ystep*0.5, 2) < 750*750 ){
               dist = sqrt( pow(p(0)-xstep*0.5, 2) + pow(p(1)-ystep*0.5, 2) );
-              double dist_to_mid_ring = dist - 675;
+              double dist_to_mid_ring = dist - 725;
               double theta = get_theta(p(0) - xstep*0.5, p(1) - ystep*0.5);
               while(theta > M_PI / 3.0) {
                   theta -= M_PI / 3.0;
@@ -176,10 +176,13 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
                   values(1) = (p(1) - ystep*0.5)/dist * (1 - 0.04 * dist_to_mid_ring);
               }
           }
-          //values(0) += value0;
-          //values(1) += value1;
+          values(0) += value0;
+          values(1) += value1;
           break;
       }
+      default:
+          values(0) = value0;
+          values(1) = value1;
   } // end of switch
  
   //values(0) = d/dx*(10^-4N/cell*0.001cell/um^2*fb_density) = d/dx* fb_density * 100kPa
@@ -1098,6 +1101,7 @@ void ElasticProblem<dim>::output_woundcontour(){
         }
     }
 
+    static int out_i = 0;
     for(size_t i=0; i<mYstep; i++){
         for(size_t j=0; j<mXstep; j++){
             if( isOnWoundEdge(j,i,mXstep,mYstep) ){
@@ -1105,16 +1109,22 @@ void ElasticProblem<dim>::output_woundcontour(){
                 tdy = tissue_displacement_y[i][j];
                 if(i+(int)tdy>=0 && i+(int)tdy<mYstep && j+(int)tdx>=0 && j+(int)tdy<mXstep){
                     woundcontour[i+(int)tdy][j+(int)tdx] = 2.0;
+                    if(out_i%10 == 0){
+                        mWoundContourHistory[std::make_pair(i+(int)tdy, j+(int)tdx)] = out_i;
+                    }
                 }
             }
         }
     }
 
-    static int out_i = 0;
     char file_name[21];
     sprintf(file_name, "output/cont%05d.BMP", out_i++);
     BMP::output_BMP(file_name, 14, woundcontour, mXstep, mYstep);
 
+    if(out_i%50 == 0){
+        sprintf(file_name, "output/cont_aggregate.BMP");
+        BMP::output_BMP3(file_name, 14, mWoundContourHistory, mXstep, mYstep);
+    }
     return;
 }
 

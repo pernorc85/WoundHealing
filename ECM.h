@@ -31,6 +31,7 @@ public:
     void collagen_orientation_with_fibroblast(Flist& fList, double time_step);
     void output_collagen(Flist& fibroblastList);
     void output_tension();
+    void detect_tension_field_singularity();
 
 public:
     Mat_DP collagen;
@@ -41,6 +42,7 @@ protected:
     Mat_DP fibronectin_density;
     Mat_DP stretch_history;
     vector<Mat_DP> tensiontheta_bins_history;//data intensive
+    vector<pair<int, int>> mTensionFieldSingularPoints;
     int ECM_ystep;
     int ECM_xstep;
     friend class Flist;

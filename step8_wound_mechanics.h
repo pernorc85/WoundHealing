@@ -116,6 +116,8 @@ private:
     DP residue_total;//state variable
     DP residue_max;//state variable
     int mXstep, mYstep;
+
+    std::map<std::pair<int, int>, int> mWoundContourHistory;
 };
 
 
