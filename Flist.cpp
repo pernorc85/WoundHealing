@@ -25,11 +25,10 @@ void Flist::initialize(int FDensity, int wound_radius){
         y = rand()%mYstep;
         theta = (rand()%360)*M_PI/180.0;
         
-        //if(pow(x-mXstep/2,2)+pow(y-mYstep,2) > 160000 || pow(x-mXstep,2)+pow(y-mYstep,2) < 90000 ){ 
-        //if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= wound_radius*wound_radius){                
+        if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= wound_radius*wound_radius){                
     	    mFCellMap.emplace(fid, Fibroblast(x,y, theta));
             fid++;    
-        //}       
+        }       
     }          
     return;
 }

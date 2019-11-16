@@ -1,6 +1,7 @@
 #include <string>
 #include <cmath>
 #include <iostream>
+#include <map>
 #include "BMP.h" 
 using namespace std; 
 
@@ -12,7 +13,15 @@ unsigned char b8[3], b9[3], b10[3],b11[3];
 unsigned char b12[3],b13[3],b14[3],b15[3];
 unsigned char b_0[3],b_16[3];
 unsigned char b_yellow[3], b_green[3], b_red[3];
-	
+
+unsigned char b_gr1[3], b_gr2[3], b_gr3[3];	
+unsigned char b_gr4[3], b_gr5[3], b_gr6[3];
+unsigned char b_gr7[3], b_gr8[3], b_gr9[3];
+unsigned char b_gr10[3];
+
+unsigned char b_red1[3], b_red2[3], b_red3[3];	
+unsigned char b_red4[3], b_red5[3];	
+
 float Maximal=  2.0 ;
 float Minimal=  0.0 ;
 float Interval=(Maximal-Minimal)/16.0;
@@ -86,6 +95,28 @@ void Prepare_BMP_Format(FILE *fp_BMP, int width, int height) {
 	b_0[i]  = 15 ;  // for scale levels below b0 
 	b_16[i] = 255 ; // for scale levels above b15
     }
+
+    for(i=0;i<3;i++) {
+        b_gr1[i] = i==0 ? 0 : (i==1 ? 255 - 15 : 15);
+        b_gr2[i] = i==0 ? 0 : (i==1 ? 255 - 31 : 31);
+        b_gr3[i] = i==0 ? 0 : (i==1 ? 255 - 47 : 47);
+        b_gr4[i] = i==0 ? 0 : (i==1 ? 255 - 63 : 63);
+        b_gr5[i] = i==0 ? 0 : (i==1 ? 255 - 79 : 79);
+        b_gr6[i] = i==0 ? 0 : (i==1 ? 255 - 95 : 95);
+        b_gr7[i] = i==0 ? 0 : (i==1 ? 255 - 111 : 111);
+        b_gr8[i] = i==0 ? 0 : (i==1 ? 255 - 127 : 127);
+        b_gr9[i] = i==0 ? 0 : (i==1 ? 255 - 143 : 143);
+        b_gr10[i] = i==0 ? 0 : (i==1 ? 255 - 159 : 159);
+    }
+
+    for(i=0;i<3;i++) {
+        b_red1[i] = i==2 ? 255 : 250;
+        b_red2[i] = i==2 ? 255 : 200;
+        b_red3[i] = i==2 ? 255 : 150;
+        b_red4[i] = i==2 ? 255 : 100;
+        b_red5[i] = i==2 ? 255 : 50;
+    }
+ 
     b_yellow[0] = 0, b_yellow[1] = 255, b_yellow[2] = 255;
     b_green[0] = 0, b_green[1] = 255, b_green[2] = 0;
     b_red[0] = 255, b_red[1] = 0, b_red[2] = 0;
@@ -128,7 +159,7 @@ void output_BMP2(char* file_name,int n, const Mat_DP& data, const Mat_DP& cellma
     Prepare_BMP_Format(fp_BMP, xstep,ystep);
     for(int i=0;i<ystep;i++){
         for(int j=0;j<xstep;j++){
-            jj = int( (data[i][j] - Minimal)/Interval );
+            jj = data[i][j] >= 0.0 ? int( (data[i][j] - Minimal)/Interval ) : -1;
             if(cellmatrix[i][j] == 1) fwrite(&b_yellow, 1,3,fp_BMP);
             else{
                 if(jj==0)   fwrite(&b0, 1,3,fp_BMP);
@@ -147,9 +178,39 @@ void output_BMP2(char* file_name,int n, const Mat_DP& data, const Mat_DP& cellma
                 if(jj==13)  fwrite(&b13, 1,3,fp_BMP);
                 if(jj==14)  fwrite(&b14, 1,3,fp_BMP);
                 if(jj==15)  fwrite(&b15, 1,3,fp_BMP);
-                if(jj < 0 )  fwrite(&b_0,  1,3,fp_BMP);  
+                if(jj==-1)  fwrite(&b_gr1, 1,3,fp_BMP);
+                if(jj < -1)  fwrite(&b_0, 1,3,fp_BMP);
                 if(jj > 15)  fwrite(&b_16, 1,3,fp_BMP); 
             }
+        }
+    }
+    fclose(fp_BMP);
+    return;
+}
+
+void output_BMP3(char* file_name,int n, const map<pair<int, int>, int>& data, int xstep,int ystep){
+    int jj;
+    FILE *fp_BMP = fopen(file_name, "w");
+    Prepare_BMP_Format(fp_BMP, xstep,ystep);
+    for(int i=0;i<ystep;i++){
+        for(int j=0;j<xstep;j++){
+            std::pair<int, int> key = std::make_pair(i, j);
+            if(data.find(key) != data.end()) {
+                jj = data.at(key);
+                if(jj==0)   fwrite(&b_gr1, 1,3,fp_BMP);
+                if(jj==10)   fwrite(&b_gr2, 1,3,fp_BMP);
+                if(jj==20)   fwrite(&b_gr3, 1,3,fp_BMP);
+                if(jj==30)   fwrite(&b_gr4, 1,3,fp_BMP);
+                if(jj==40)   fwrite(&b_gr5, 1,3,fp_BMP);
+                if(jj==50)   fwrite(&b_gr6, 1,3,fp_BMP);
+                if(jj==60)   fwrite(&b_gr7, 1,3,fp_BMP);
+                if(jj==70)   fwrite(&b_gr8, 1,3,fp_BMP);
+                if(jj==80)   fwrite(&b_gr9, 1,3,fp_BMP);
+                if(jj==90)   fwrite(&b_gr10, 1,3,fp_BMP);
+                if(jj >= 100)  fwrite(&b_gr10, 1,3,fp_BMP); 
+            } else {
+                fwrite(&b_0, 1,3,fp_BMP);
+            } 
         }
     }
     fclose(fp_BMP);
