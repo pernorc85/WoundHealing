@@ -68,6 +68,23 @@ void Flist::initialize_rectangle(int FDensity, double a, double b){
     return;
 }
 
+void Flist::initialize_oval(int FDensity){
+    DP x,y,theta;
+    int FNumber = FDensity * (mXstep/1000.0) * (mYstep/1000.0);
+    int fid = 0;
+    for(int i=0; i<FNumber; i++){
+        x = rand()%mXstep;
+        y = rand()%mYstep;
+        theta = (rand()%360)*M_PI/180.0;
+        
+        if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= 122500 || pow(x-mXstep/2,2)+pow((y-mYstep/2)/0.3,2) <=122500){  
+            mFCellMap.emplace(fid, Fibroblast(x,y, theta));
+            fid++;
+        }
+    }
+    return;
+}
+
 void Flist::Flist_move(Chemokine& PDGF, ECM& extraCellularMatrix, DP time_step)
 {
     DP gradx, grady;

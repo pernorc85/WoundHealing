@@ -11,11 +11,13 @@ double fb_density(double y, double x){
 
 bool isOnWoundEdge(double x, double y, int mXstep, int mYstep) {
     double wound_length = 800, wound_width = 600;
-    return (abs(abs(x-mXstep/2)- wound_length/2)<1.5 and abs(y-mYstep/2) < wound_width/2) 
-           || (abs(abs(y-mYstep/2)-wound_width/2) < 1.5 and abs(x-mXstep/2) < wound_length/2);
+    //return (abs(abs(x-mXstep/2)- wound_length/2)<1.5 and abs(y-mYstep/2) < wound_width/2) 
+    //       || (abs(abs(y-mYstep/2)-wound_width/2) < 1.5 and abs(x-mXstep/2) < wound_length/2);
     //return abs(sqrt(pow(x-mXstep/2,2)+pow(y-mYstep/2,2)) - 350.0) < 2.0;
     //double a = 400, b = 300;
     //return abs(sqrt(pow(x-mXstep/2,2)+pow(a/b*(y-mYstep/2),2)) - a) < 2.0;
+    return abs(sqrt(pow(x-mXstep/2,2)+pow(y-mYstep/2,2)) - 400.0) < 2.0 or
+                   abs(sqrt(pow(x-mXstep/2,2)+pow((y-mYstep/2)/0.3,2)) - 300.0) < 2.0;
 }
 
 void elasticity_coefficient(Mat_DP F, Vec_DP M, DP c_density, Mat4D_DP& A);

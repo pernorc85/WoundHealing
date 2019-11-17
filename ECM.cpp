@@ -128,6 +128,47 @@ void ECM::initialize(int wound_radius){
     } 
 }
 
+void ECM::initialize_oval(){
+    int i,j;
+    DP theta;
+    double xcenter = ECM_xstep/2;
+    double ycenter = ECM_ystep/2;
+    for(i=0;i<ECM_ystep/5;i++){//from bottom up
+        for(j=0;j<ECM_xstep/5;j++){//from left to right
+            double grid_cx = j*5 + 2.5;//j*5 represent collagen_density grid starting at j*5, 
+                                             //so its center is at j*5 + 2.5
+            double grid_cy = i*5 + 2.5;
+            double distance_from_center = sqrt(pow(grid_cx-xcenter,2)+pow(grid_cy-ycenter,2));
+            double distance_from_focus = sqrt(pow(grid_cx-xcenter,2)+pow((grid_cy-ycenter)/0.3,2));
+            if(distance_from_center >= 450){// || pow(j-500.0,2)+pow((i-500.0)/1,2) < 62500){
+                collagen_density[i][j] = 1;
+                fibronectin_density[i][j] = 0;
+            } else if(distance_from_center < 450 && distance_from_center > 350){
+                collagen_density[i][j] = sin( (distance_from_center-400)/50*M_PI/2 )*0.5 + 0.5;
+                fibronectin_density[i][j] = 1 - collagen_density[i][j];
+            } else if(distance_from_focus < 350 && distance_from_focus > 250){
+                collagen_density[i][j] = -sin( (distance_from_focus-300)/50*M_PI/2 )*0.5 + 0.5;
+                fibronectin_density[i][j] = 1 - collagen_density[i][j];
+            } else if(distance_from_focus < 250){
+                collagen_density[i][j] = 1;
+                fibronectin_density[i][j] = 0;
+            } else{
+                collagen_density[i][j] = 0;
+                fibronectin_density[i][j] = 1;
+            }
+        }
+    }
+
+    for(i=0; i<ECM_ystep/10; i++){
+        for(j=0; j<ECM_xstep/10; j++){
+            theta = rand()%180 * M_PI/180;//collagenºÍfibroblastµÄ·½Ïò¶¼ÓÃ»¡¶È±íÊ¾
+            //ÓÃ360Ì«Âé·³ÁË£¬Ö±½ÓÓÃ180 
+            collagen[i][j] = theta;
+            stretch_history[i][j] = 0.0;
+        }
+    } 
+}
+
 void ECM::collagen_orientation(Flist& fList, const Mat_DP& tdx, const Mat_DP& tdy, double time_step) {
     collagen_orientation_with_fibroblast(fList, time_step);
     collagen_production(fList, time_step);
@@ -277,7 +318,7 @@ void ECM::collagen_orientation_under_tension(const Mat_DP& tissue_displacement_x
             //reorientation only happens when stretch > 1.2
             double stretch1, stretch2, tensiontheta;
             std::tie(stretch1, stretch2, tensiontheta) = calculate_principal_strain(F);
-            tensionfield[i][j] = tensiontheta;
+            tension_theta_field[i][j] = tensiontheta;
             stretch_history[i][j] *= 0.95;
             for(size_t k = 0; k < 18; k++) {
                 tensiontheta_bins_history[k][i][j] *= 0.95;
@@ -345,7 +386,7 @@ void ECM::detect_tension_field_singularity(){
                 x = center_x + radius * cos(eta);
                 y = center_y + radius * sin(eta);
                 if(x < 0.0 or y < 0.0 or x >= ECM_xstep or y>= ECM_ystep) continue;
-                tension_theta.push_back( tensionfield[int(y/10)][int(x/10)] );
+                tension_theta.push_back( tension_theta_field[int(y/10)][int(x/10)] );
             }
             double sum_dtheta = 0.0;
             for(int k=0; k<tension_theta.size(); k++){
@@ -387,24 +428,24 @@ void ECM::output_tension(){
             if(i%2 == 1) x += 10;
             for(int k=0; k<80; k++){
                 //printf("x = %f, y = %f\n",x,y);                
-                xnew = x + dl*cos(tensionfield[int(y/10)][int(x/10)]);
+                xnew = x + dl*cos(tension_theta_field[int(y/10)][int(x/10)]);
                 if(xnew < 0)xnew = 0;
                 if(xnew > ECM_xstep-1)xnew = ECM_xstep-1;
-                ynew = y + dl*sin(tensionfield[int(y/10)][int(x/10)]);
+                ynew = y + dl*sin(tension_theta_field[int(y/10)][int(x/10)]);
                 if(ynew < 0)ynew= 0;
                 if(ynew > ECM_ystep-1)ynew = ECM_ystep-1;
                 x = xnew;
                 y = ynew;
-                vf[(int)y][(int)x] = 2.0;                
+                vf[(int)y][(int)x] = 2.0;
             }
             y = i*10;
             x = j*20;    
             if(i%2 == 1) x += 10;
             for(int k=0; k<20; k++){
-                xnew = x - dl*cos(tensionfield[int(y/10)][int(x/10)]); 
+                xnew = x - dl*cos(tension_theta_field[int(y/10)][int(x/10)]); 
                 if(xnew < 0)xnew = 0;
                 if(xnew > ECM_xstep-1)xnew = ECM_xstep-1;
-                ynew = y - dl*sin(tensionfield[int(y/10)][int(x/10)]);
+                ynew = y - dl*sin(tension_theta_field[int(y/10)][int(x/10)]);
                 if(ynew < 0)ynew = 0;
                 if(ynew > ECM_ystep-1)ynew = ECM_ystep-1;
                 x = xnew;

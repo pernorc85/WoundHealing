@@ -5,10 +5,10 @@
 #include "BMP.h"
 
 using namespace std;
-extern int ADI(DP, Mat_DP&, DP, DP);
+extern int ADI(DP, Mat_DP&, DP);
 
-Chemokine::Chemokine(int nx_, int ny_, double dx_, double D, double decay_rate_):
-    xstep(nx_),ystep(ny_),dx(dx_),diffusion_coeff(D),decay_rate(decay_rate_){
+Chemokine::Chemokine(int nx_, int ny_, double dx_, double D):
+    xstep(nx_),ystep(ny_),dx(dx_),diffusion_coeff(D){
     conc = new Mat_DP(ystep,xstep);
     gradx = NULL;
     grady = NULL;
@@ -49,6 +49,7 @@ void Chemokine::initialize(double radius){//if radius = 350
             } else {
 		(*conc)[i][j] = 1;  
             }
+            //(*conc)[i][j] = 0;
         }
     }
     isGradientCalculated = false;
@@ -81,6 +82,24 @@ void Chemokine::initialize_rectangle(double a, double b){
         }
     }
 }
+
+void Chemokine::initialize_oval(){
+    int xcenter = xstep * 0.5;
+    int ycenter = ystep * 0.5;   
+    for(int i=0;i<ystep;i++){//from bottom up
+        for(int j=0;j<xstep;j++){//from left to right
+            if(pow(j-xcenter,2)+pow(i-ycenter,2) < 450*450 && pow(j-xcenter,2)+pow(i-ycenter,2) > 350*350){
+                (*conc)[i][j] = -sin( (sqrt(pow(j-xcenter,2)+pow(i-ycenter,2))-400)/50*M_PI/2 )*0.5 + 0.5;
+            } else if(pow(j-xcenter,2)+pow((i-ycenter)/0.3,2) < 350*350 && pow(j-xcenter,2)+pow((i-ycenter)/0.3,2) > 250*250){
+                (*conc)[i][j] = sin( (sqrt(pow(j-xcenter,2)+pow((i-ycenter)/0.3,2))-300)/50*M_PI/2 )*0.5 + 0.5;
+            } else if(pow(j-xcenter,2)+pow(i-ycenter,2) < 350*350 && pow(j-xcenter,2)+pow((i-ycenter)/0.3,2) > 350*350){
+                (*conc)[i][j] = 1;
+            }
+            else (*conc)[i][j] = 0;
+        }
+    }
+}
+
 
 void Chemokine::initialize2(){
     int i, j;
@@ -121,8 +140,22 @@ void Chemokine::calculate_gradient(){
     isGradientCalculated = true;
 }
 
-void Chemokine::diffusion(double time_step){
-     ADI(time_step, *conc, diffusion_coeff, decay_rate); 
+void Chemokine::diffusion(Mat_DP& collagen_density, double time_step){
+    double normal_collagen_density = 1.0; 
+    double k1 = 0.1;
+    double k2 = 0.02;//half decay time = ln2 / k2 ~= 34.5 hr
+
+    for(size_t i=0; i<ystep; i++) {
+        for(size_t j=0; j<xstep; j++) {
+            //first term is production, due to lack of collagen
+            //second term is decay
+            (*conc)[i][j] += time_step * (
+                                 k1 * max(0.0, 1 - collagen_density[int(i/5.0)][int(j/5.0)] / normal_collagen_density)
+                                 - k2 * (*conc)[i][j] 
+                                         );
+        }
+    }
+    ADI(time_step, *conc, diffusion_coeff); 
 }
 
 void Chemokine::output(int out_i, std::string GF_name){

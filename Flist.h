@@ -28,7 +28,8 @@ public:
     void initialize(int FDensity, double a, double b);
     void initialize_rectangle(int FDensity, double a, double b);
     void initialize(int FDensity, int wound_radius);
-   
+    void initialize_oval(int FDensity);
+ 
     void Flist_move(Chemokine& PDGF,
                     ECM& extraCellularMatrix, DP time_step); 
     void Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, 

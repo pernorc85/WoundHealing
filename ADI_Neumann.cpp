@@ -36,7 +36,7 @@ void NR::tridag(Vec_I_DP &a, Vec_I_DP &b, Vec_I_DP &c, Vec_I_DP &r, Vec_O_DP &u)
 
 }
  
-int ADI(DP time_step, Mat_DP& GF, DP D, DP decay_rate){
+int ADI(DP time_step, Mat_DP& GF, DP D){
     int j,l,k;
     
     DP alpha = D/2*time_step/pow(dx,2);
