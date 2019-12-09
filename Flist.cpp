@@ -25,11 +25,12 @@ void Flist::initialize(int FDensity, int wound_radius){
         y = rand()%mYstep;
         theta = (rand()%360)*M_PI/180.0;
         
+
         if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= wound_radius*wound_radius){                
     	    mFCellMap.emplace(fid, Fibroblast(x,y, theta));
             fid++;    
         }       
-    }          
+    }         
     return;
 }
 
@@ -76,7 +77,6 @@ void Flist::initialize_oval(int FDensity){
         x = rand()%mXstep;
         y = rand()%mYstep;
         theta = (rand()%360)*M_PI/180.0;
-        
         if(pow(x-mXstep/2,2)+pow(y-mYstep/2,2) >= 122500 || pow(x-mXstep/2,2)+pow((y-mYstep/2)/0.3,2) <=122500){  
             mFCellMap.emplace(fid, Fibroblast(x,y, theta));
             fid++;
@@ -84,9 +84,10 @@ void Flist::initialize_oval(int FDensity){
     }
     return;
 }
-
-void Flist::Flist_move(Chemokine& PDGF, ECM& extraCellularMatrix, DP time_step)
-{
+                                         
+void Flist::Flist_move(Chemokine& PDGF, ECM& extraCellularMatrix, 
+                               const Mat_DP& tissue_displacement_x,
+                               const Mat_DP& tissue_displacement_y, DP time_step) {
     DP gradx, grady;
     DP fdensity, cdensity;
     for(auto &item : mFCellMap) {
@@ -94,21 +95,43 @@ void Flist::Flist_move(Chemokine& PDGF, ECM& extraCellularMatrix, DP time_step)
         grady = (*PDGF.grady)[(int)item.second.yy][(int)item.second.xx]; 
         fdensity = extraCellularMatrix.fibronectin_density[(int)(item.second.yy/5)][(int)(item.second.xx/5)];
         cdensity = extraCellularMatrix.collagen_density[(int)(item.second.yy/5)][(int)(item.second.xx/5)];
-        
-        Fcell_move(&(item.second), gradx, grady, fdensity, cdensity, extraCellularMatrix.collagen, time_step);                         
+        DP conc = (*PDGF.conc)[(int)item.second.yy][(int)item.second.xx];
+        if (conc != 0.0) cout << "conc = " << conc << endl;
+        Fcell_activity_dynamics(&(item.second), conc, time_step);       
+
+        Mat_DP F(2,2);
+        F[0][0] = 1.0;
+        F[0][1] = 0.0;
+        F[1][0] = 0.0;
+        F[1][1] = 1.0; 
+        if (item.second.activity > 1e-3) {
+            Fcell_move(&(item.second), gradx, grady, fdensity, cdensity, extraCellularMatrix.collagen, F, time_step); 
+        }
     }
 }
 
-void Flist::Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, Mat_DP& collagen, DP time_step)
-{
+void Flist::Fcell_activity_dynamics(Fibroblast* curPtr, DP PDGF_conc, DP time_step) {
+    //a fibroblast's activity will be stimulated by high level of PDGF, 
+    //and will decay slowly over time
+    //therefore when PDGF is diminished, fibroblast will remain active for a period of time
+    double k1 = 0.5;
+    double top_activity = 1.0;
+    double k2 = 0.02;//half decay time = ln2 / k2 = 34.5hr;
+    curPtr->activity += time_step * (
+                            k1 * PDGF_conc * (1 - curPtr->activity / top_activity) 
+                            - k2 * curPtr->activity );
+}
+
+
+void Flist::Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, Mat_DP& collagen, Mat_DP& F, DP time_step) {
     DP rou1 = 0.3, rou2 = 0.4;
     //************************chemotaxis********************************************
     DP gradtheta = get_theta(gradx, grady);
-    DP speed_taken = speed;
+    DP speed_taken = 0.0;
     
     if(cdensity < 0.7)speed_taken = speed * (1 + 2*fdensity)/3;
     else speed_taken = speed * (1 + 2*fdensity)/3 * (1.7 - cdensity);
-    curPtr->speed = speed_taken;
+    curPtr->speed = speed_taken * curPtr->activity;
     
     DP grad=min(1.0,1000*sqrt(pow(gradx,2)+pow(grady,2)));
     rou1=rou1*grad;
@@ -169,9 +192,9 @@ void Flist::Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP c
     if(gradtheta >= 0){
         if(gradtheta < M_PI/2 && curPtr->theta > 3/2*M_PI && curPtr->theta < 2*M_PI){
             curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou2*collagen_avg + rou1*(gradtheta + 2*M_PI);
-        }else if(gradtheta > 3/2*M_PI && gradtheta < 2*M_PI && curPtr->theta < M_PI/2){
+        } else if(gradtheta > 3/2*M_PI && gradtheta < 2*M_PI && curPtr->theta < M_PI/2){
             curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou2*collagen_avg + rou1*(gradtheta - 2*M_PI);
-        }else {
+        } else {
             curPtr->theta = (1 - rou1 - rou2)*curPtr->theta + rou2*collagen_avg + rou1*gradtheta;
         }
     }
@@ -183,8 +206,18 @@ void Flist::Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP c
     while(curPtr->theta < 0) {
         curPtr->theta += 2*M_PI;
     }
-    curPtr->xx += speed_taken * time_step * cos(curPtr->theta);
-    curPtr->yy += speed_taken * time_step * sin(curPtr->theta);
+
+    //path length migrated need to be adjusted with F
+    double path_elongation;
+    {
+        Mat_DP theta_vec(2,1);
+        theta_vec[0][0] = cos(curPtr->theta);
+        theta_vec[0][1] = sin(curPtr->theta);
+        Mat_DP M = multiply(F, theta_vec);
+        path_elongation = sqrt(M[0][0]*M[0][0] + M[0][1]*M[0][1]);
+    }
+    curPtr->xx += curPtr->speed * time_step * cos(curPtr->theta) / path_elongation;
+    curPtr->yy += curPtr->speed * time_step * sin(curPtr->theta) / path_elongation;
      
     //(int)ÊÇÈ¡ÕûÊý²¿·Ö£¬²»ÊÇËÄÉáÎåÈë 
     if(curPtr->xx < 0)curPtr->xx = 0;

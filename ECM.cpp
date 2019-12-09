@@ -199,6 +199,7 @@ void ECM::collagen_orientation_with_fibroblast(Flist& fibroblastList, double tim
                 DP cell_theta = item.second.theta;
                 double dist = sqrt( pow(cell_yy-grid_cy, 2) + pow(cell_xx-grid_cx, 2) );
                 omega = (dist <=L)? 1-dist/L : 0;
+                ometa *= item.second.activity;
                 omegasum += omega;
                 //be maticulous here-----------------------------------------------
                 if(omega != 0){

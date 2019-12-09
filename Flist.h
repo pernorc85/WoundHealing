@@ -12,10 +12,11 @@ using namespace std;
 
 struct Fibroblast{
     Fibroblast(DP x_,DP y_, DP theta_):
-      xx(x_), yy(y_), theta(theta_){}
+      xx(x_), yy(y_), theta(theta_), activity(0.5) {}
 
     DP xx,yy; 
     DP theta;
+    DP activity;
     DP speed;
 };
 
@@ -31,9 +32,12 @@ public:
     void initialize_oval(int FDensity);
  
     void Flist_move(Chemokine& PDGF,
-                    ECM& extraCellularMatrix, DP time_step); 
+                    ECM& extraCellularMatrix, 
+                    const Mat_DP& tissue_displacement_x,
+                    const Mat_DP& tissue_displacement_y, DP time_step); 
+    void Fcell_activity_dynamics(Fibroblast* curPtr, DP conc, DP time_step);
     void Fcell_move(Fibroblast* curPtr, DP gradx, DP grady, DP fdensity, DP cdensity, 
-                    Mat_DP& collagen_angle, DP time_step);
+                    Mat_DP& collagen_angle, Mat_DP& F, DP time_step);
     void output_fibroblast();
     void output_flistFile();
 
