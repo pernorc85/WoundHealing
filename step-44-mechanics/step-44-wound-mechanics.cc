@@ -55,6 +55,7 @@
 
 #include "nr.h"
 #include "util.h"
+#include "BMP.h"
 
 extern const int xstep;
 extern const int ystep;
@@ -148,7 +149,7 @@ inline
 void Cdensity<dim>::vector_value (const Point<dim> &p,
                                        double   &value) const
 {
-  value = collagen_density[(int)(p(1)/5.0)][(int)(p(0)/5.0)];
+  value = collagen_density[(int)(p(1)*0.2)][(int)(p(0)*0.2)];
 }
 
 
@@ -261,30 +262,31 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
               values(0) = 0.0;
               values(1) = 0.0;
           }
-          values(0) += value0;
-          values(1) += value1;
+          //values(0) += value0;
+          //values(1) += value1;
           break;
       }
 
       case 2:{
           //skin tension field B 
           double sign = 1;//index%2 == 0 ? 1 : (-1);
-          if(pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) < 50*50){
+          double radius = 80.0;
+          if(pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) < radius*radius){
               dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) );
-              values(0) = sign * (-s) * 7.5 * (1 - dist*0.02);
-              values(1) = sign * (-s) * 7.5 * (1 - dist*0.02);
-          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) < 50*50){
+              values(0) = sign * (-s) * 7.5 * (1 - dist/radius);
+              values(1) = sign * (-s) * 7.5 * (1 - dist/radius);
+          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) < radius*radius){
               dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) );
-              values(0) = sign * s * 7.5 * (1 - dist*0.02);
-              values(1) = sign* (-s) * 7.5 * (1 - dist*0.02);
-          } else if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
+              values(0) = sign * s * 7.5 * (1 - dist/radius);
+              values(1) = sign* (-s) * 7.5 * (1 - dist/radius);
+          } else if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < radius*radius){
               dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = sign * (-s) * 7.5 * (1 - dist*0.02);
-              values(1) = sign * s * 7.5 * (1 - dist*0.02);
-          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < 50*50){
+              values(0) = sign * (-s) * 7.5 * (1 - dist/radius);
+              values(1) = sign * s * 7.5 * (1 - dist/radius);
+          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < radius*radius){
               dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = sign * s * 7.5 * (1 - dist*0.02);
-              values(1) = sign * s * 7.5 * (1 - dist*0.02);
+              values(0) = sign * s * 7.5 * (1 - dist/radius);
+              values(1) = sign * s * 7.5 * (1 - dist/radius);
           } else {
               values(0) = 0.0;
               values(1) = 0.0;
@@ -421,26 +423,11 @@ Solid<dim>::~Solid()
 // as a mask and sets the J_component of n_components to 1. This is exactly what
 // we want. Have a look at its usage in step-20 for more information.
   template <int dim>
-  void Solid<dim>::run()
+  void Solid<dim>::RunIncrementalNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
   {
-    make_grid();
-    system_setup();
-    {
-      ConstraintMatrix constraints;
-      constraints.close();
-
-      const ComponentSelectFunction<dim>
-        J_mask (J_component, n_components);
-
-      VectorTools::project (dof_handler_ref,
-                            constraints,
-                            QGauss<dim>(degree+2),
-                            J_mask,
-                            solution_n);
-    }
-    output_deformation_profile("");
+    update_qph_for_material_property(collagen_orientation, collagen_density);
+    time.restart();
     time.increment();
-
     // We then declare the incremental solution update $\varDelta
     // \mathbf{\Xi}:= \{\varDelta \mathbf{u},\varDelta \widetilde{p},
     // \varDelta \widetilde{J} \}$ and start the loop over the time domain.
@@ -449,15 +436,13 @@ Solid<dim>::~Solid()
     BlockVector<double> solution_delta(dofs_per_block);
     assemble_perturbation();
     bool first_round = true;
-    while (time.current() < time.end())
-      {
+    while (time.current() <= time.end()) {
         solution_delta = 0.0;
 
         // ...solve the current time step and update total solution vector
         // $\mathbf{\Xi}_{\textrm{n}} = \mathbf{\Xi}_{\textrm{n-1}} +
         // \varDelta \mathbf{\Xi}$...
         //update_qph_for_growth();
-        update_qph_for_material_property();
 
         solve_nonlinear_timestep(solution_delta);
         solution_n += solution_delta;
@@ -467,9 +452,11 @@ Solid<dim>::~Solid()
         }
         // ...and plot the results before moving on happily to the next time
         // step:
-        output_deformation_profile("growth");
         time.increment();
-      }
+    }
+    output_deformation_profile("healing");
+    output_woundcontour();
+    update_qph_restore();
   }
 
 template <int dim>
@@ -488,7 +475,8 @@ void Solid<dim>::RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_den
         // ...and plot the results before moving on happily to the next time
         // step:
     output_deformation_profile("healing");
-    time.increment();
+    output_woundcontour();
+    update_qph_restore();
 }
 
 template <int dim>
@@ -514,7 +502,6 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
 
     tissue_displacement_x = Mat_DP(mYstep, mXstep);
     tissue_displacement_y = Mat_DP(mYstep, mXstep);
-    output_deformation_profile("");
 }
 // @sect3{Private interface}
 
@@ -842,7 +829,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
       for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face){
           if (cell->face(face)->at_boundary()) {
               boundary_count++;
-              cell->face(face)->set_boundary_id (0);
+              cell->face(face)->set_boundary_id (1);
           }
       }
     cout << "boundary_count = " << boundary_count << endl;
@@ -1081,7 +1068,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
     WorkStream::run(dof_handler_ref.begin_active(),
                     dof_handler_ref.end(),
                     *this,
-                    &Solid::update_qph_incremental_one_cell,
+                    &Solid::update_qph_one_cell,
                     &Solid::copy_local_to_global_UQPH,
                     scratch_data_UQPH,
                     per_task_data_UQPH);
@@ -1089,12 +1076,50 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
     timer.leave_subsection();
   }
 
+  template <int dim>
+  void Solid<dim>::update_qph_restore()
+  {
+    timer.enter_subsection("Update QPH data restore");
+    std::cout << " UQPH restore" << std::flush;
+
+    BlockVector<double> solution_total(dofs_per_block);
+    {
+      ConstraintMatrix constraints;
+      constraints.close();
+
+      const ComponentSelectFunction<dim>
+        J_mask (J_component, n_components);
+
+      VectorTools::project (dof_handler_ref,
+                            constraints,
+                            QGauss<dim>(degree+2),
+                            J_mask,
+                            solution_total);
+    }
+    solution_n = solution_total;
+
+    const UpdateFlags uf_UQPH(update_values | update_gradients);
+    PerTaskData_UQPH per_task_data_UQPH;
+    ScratchData_UQPH scratch_data_UQPH(fe, qf_cell, uf_UQPH, solution_total);
+
+    // We then pass them and the one-cell update function to the WorkStream to
+    // be processed:                                    
+    WorkStream::run(dof_handler_ref.begin_active(),
+                    dof_handler_ref.end(),
+                    *this,
+                    &Solid::update_qph_one_cell,
+                    &Solid::copy_local_to_global_UQPH,
+                    scratch_data_UQPH,
+                    per_task_data_UQPH);
+
+    timer.leave_subsection();
+  }
 
 // Now we describe how we extract data from the solution vector and pass it
 // along to each QP storage object for processing.
   template <int dim>
   void
-  Solid<dim>::update_qph_incremental_one_cell(const typename DoFHandler<dim>::active_cell_iterator & cell,
+  Solid<dim>::update_qph_one_cell(const typename DoFHandler<dim>::active_cell_iterator & cell,
                                               ScratchData_UQPH & scratch,
                                               PerTaskData_UQPH & data)
   {
@@ -1262,16 +1287,18 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         error_residual_norm.normalise(error_residual_0);
 
         if (newton_iteration > 0 && error_update_norm.u < parameters.tol_u
-            )//&& error_residual_norm.u <= parameters.tol_f)
-          {
+            )//&& error_residual_norm.u <= parameters.tol_f) 
+        {
             std::cout << " CONVERGED! " << std::endl;
             print_conv_footer();
             break;
-          }
+        }
+
+        /*
         if (newton_iteration == parameters.max_iterations_NR-1 
             && error_update_norm.u > 10e-3){
             time.dec_delta_t();
-        }
+        }*/
 
                                          // If we have decided that we want to
                                          // continue with the iteration, we
@@ -1306,7 +1333,6 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         update_qph_incremental(solution_delta);
         BlockVector<double> solution_temp(solution_n);
         solution_temp += solution_delta;
-        output_results_temp(newton_iteration, solution_temp);
 
         std::cout << " | " << std::fixed << std::setprecision(3) << std::setw(7)
                   << std::scientific << lin_solver_output.first << "  "
@@ -1785,11 +1811,12 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
     auto points = scratch.fe_values_ref.get_quadrature_points();
     fibroblast_force.vector_value_list(points, fibroblast_force_values);
 	//fibroblast_force should data member of Solid
-    
+   
+    const double    time_ramp = time.current() / time.end(); 
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
         Tensor<1, dim> traction;
         for(size_t i=0; i<dim; i++)
-            traction[i] = fibroblast_force_values[q_point][i];
+            traction[i] = time_ramp * fibroblast_force_values[q_point][i];
 
         //cout << "traction: " << traction[0] << ", " << traction[1] << endl;
 		//this is the entry point for fibroblast-produced forces
@@ -1859,26 +1886,19 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
 
 
     srand(std::time(NULL));
-    for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face)
-        if (cell->face(face)->at_boundary() == true
-            && (cell->face(face)->boundary_id() == 2))
-          {
-            const Point<dim> face_center = cell->face(face)->center();
-            for (unsigned int i = 0; i < dofs_per_cell; ++i)
-              {
-                const unsigned int i_group = fe.system_to_base_index(i).first.first;
+    for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+        const unsigned int i_group = fe.system_to_base_index(i).first.first;
 
-                if (i_group == u_dof){
-                  data.cell_rhs(i) = double(rand())/double(RAND_MAX) * parameters.scale * 0.001;
-                } else if (i_group == p_dof){
-                  data.cell_rhs(i) = 0.0;
-                } else if (i_group == J_dof){
-                  data.cell_rhs(i) = 0.0;
-                } else {
-                  Assert(i_group <= J_dof, ExcInternalError());
-                }
-              }
-          }
+        if (i_group == u_dof){
+            data.cell_rhs(i) = double(rand())/double(RAND_MAX) * parameters.scale * 0.001;
+        } else if (i_group == p_dof){
+            data.cell_rhs(i) = 0.0;
+        } else if (i_group == J_dof){
+            data.cell_rhs(i) = 0.0;
+        } else {
+            Assert(i_group <= J_dof, ExcInternalError());
+        }
+    }
   }
 
 
@@ -1925,7 +1945,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
     const FEValuesExtractors::Scalar y_displacement(1);
 
     {
-      const int boundary_id = 0;
+      const int boundary_id = 1;
 
       std::vector<bool> components(n_components, true);
 
@@ -2562,7 +2582,9 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
     data_out.build_patches(q_mapping, degree);
 
     std::ostringstream filename;
-    filename << "solution-" << time.get_timestep() << suffix << ".vtk";
+    static int out_i = 0;
+    filename << "solution-" << out_i << suffix << ".vtk";
+    out_i++;
 
     std::ofstream output(filename.str().c_str());
     data_out.write_vtk(output);
@@ -2578,6 +2600,8 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
             VectorTools::point_value(dof_handler_ref, solution_n, point, value);
             tissue_displacement_x[i][j] = value(0);
             tissue_displacement_y[i][j] = value(1);
+            //cout << "tissue_displacement" << value(0) << ", " << value(1) << ", "
+            //                              << value(2) << ", " << value(3) << endl;
         }
     }
     for(int i=0; i<mYstep; i++) {
@@ -2591,6 +2615,43 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
             }
         }
     }
+}
+
+template <int dim>
+void Solid<dim>::output_woundcontour(){
+    Mat_DP woundcontour(mYstep,mXstep);
+    DP tdx,tdy;
+    for(size_t i=0; i<mYstep; i++){
+        for(size_t j=0; j<mXstep; j++){
+            woundcontour[i][j] = 0;
+        }
+    }
+
+    static int out_i = 0;
+    for(size_t i=0; i<mYstep; i++){
+        for(size_t j=0; j<mXstep; j++){
+            if( isOnWoundEdge(j,i,mXstep,mYstep) ){
+                tdx = tissue_displacement_x[i][j];
+                tdy = tissue_displacement_y[i][j];
+                if(i+(int)tdy>=0 && i+(int)tdy<mYstep && j+(int)tdx>=0 && j+(int)tdy<mXstep){
+                    woundcontour[i+(int)tdy][j+(int)tdx] = 2.0;
+                    if(out_i%10 == 0){
+                        mWoundContourHistory[std::make_pair(i+(int)tdy, j+(int)tdx)] = out_i;
+                    }
+                }
+            }
+        }
+    }
+
+    char file_name[21];
+    sprintf(file_name, "output/cont%05d.BMP", out_i++);
+    BMP::output_BMP(file_name, 14, woundcontour, mXstep, mYstep);
+
+    if(out_i%50 == 0){
+        sprintf(file_name, "output/cont_aggregate.BMP");
+        BMP::output_BMP3(file_name, 14, mWoundContourHistory, mXstep, mYstep);
+    }
+    return;
 }
 
 }//end of namespace Step44
