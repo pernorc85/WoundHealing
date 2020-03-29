@@ -77,8 +77,7 @@ namespace Step44
 
 //{collagen fiber direction}
 template <int dim>
-class Direction :  public Function<dim>
-{
+class Direction :  public Function<dim> {
 public:
     Direction ();
     Direction (const Mat_DP& collagen_direction_);
@@ -95,8 +94,7 @@ protected:
 
 //========================================
 template <int dim>
-class Cdensity :  public Function<dim>
-{
+class Cdensity :  public Function<dim> {
 public:
     Cdensity ();
     Cdensity (const Mat_DP& collagen_density_);
@@ -114,8 +112,7 @@ protected:
 
 //=======================================================================
 template <int dim>
-class RightHandSide : public Function<dim>
-{
+class RightHandSide : public Function<dim> {
 public:
     RightHandSide ();
 
@@ -162,7 +159,7 @@ public:
     }
     void dec_delta_t()
     {
-      delta_t *= 0.25;
+      delta_t *= 0.5;
     }
     void inc_delta_t()
     {
@@ -171,6 +168,11 @@ public:
     unsigned int get_timestep() const
     {
       return timestep;
+    }
+    void restart()
+    {
+      time_current = 0.0;
+      timestep = 0;
     }
     void increment()
     {
@@ -380,11 +382,11 @@ public:
     virtual
     ~Solid();
 
-    void
-    run();
-
     void 
     Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density);
+
+    void
+    RunIncrementalNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_density);
 
     void
     RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_density);
@@ -494,7 +496,10 @@ private:
     update_qph_incremental(const BlockVector<double> &solution_delta);
 
     void
-    update_qph_incremental_one_cell(const typename DoFHandler<dim>::active_cell_iterator & cell,
+    update_qph_restore();
+
+    void
+    update_qph_one_cell(const typename DoFHandler<dim>::active_cell_iterator & cell,
                                     ScratchData_UQPH &scratch,
                                     PerTaskData_UQPH &data);
 
@@ -525,6 +530,8 @@ private:
     void
     output_deformation_profile(std::string suffix);
 
+    void
+    output_woundcontour();
     void
     output_results_temp(int iteration, BlockVector<double> &solution_temp) const
     {
@@ -631,6 +638,7 @@ private:
     BlockVector<double>              solution_perturbation;
    
     int mXstep, mYstep; 
+    std::map<std::pair<int, int>, int> mWoundContourHistory;
     Cdensity<dim>                    mCollagenDensity;
     Direction<dim>                   mCollagenDirection;
     RightHandSide<dim>               mFibroblastForce;
