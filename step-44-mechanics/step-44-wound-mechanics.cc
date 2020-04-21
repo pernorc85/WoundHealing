@@ -128,42 +128,44 @@ void Direction<dim>::vector_value_list (const std::vector<Point<dim> > &points,
 
 //========================================
 template <int dim>
-Cdensity<dim>::Cdensity ()
+Magnitude<dim>::Magnitude ()
                 :
                 Function<dim> (dim)
 {}
 
 template <int dim>
-Cdensity<dim>::Cdensity (const Mat_DP& collagen_density_)
+Magnitude<dim>::Magnitude (const Mat_DP& collagen_density_, double scale_)
         :collagen_density(collagen_density_),
+         scale(scale_),
          Function<dim> (dim)
 {}
 
 template <int dim>
-void Cdensity<dim>::Set (const Mat_DP& collagen_density_) {
+void Magnitude<dim>::Set (const Mat_DP& collagen_density_, double scale_) {
     collagen_density = collagen_density_;
+    scale = scale_;
 }
 
 template <int dim>
 inline
-void Cdensity<dim>::vector_value (const Point<dim> &p,
+void Magnitude<dim>::vector_value (const Point<dim> &p,
                                        double   &value) const
 {
-  value = collagen_density[(int)(p(1)*0.2)][(int)(p(0)*0.2)];
+    value = collagen_density[(int)(p(1)*scale)][(int)(p(0)*scale)];
 }
 
 
 template <int dim>
-void Cdensity<dim>::vector_value_list (const std::vector<Point<dim> > &points,
+void Magnitude<dim>::vector_value_list (const std::vector<Point<dim> > &points,
                                             std::vector<double>   &value_list) const
 {
-  Assert (value_list.size() == points.size(),
+    Assert (value_list.size() == points.size(),
           ExcDimensionMismatch (value_list.size(), points.size()));
 
-  const unsigned int n_points = points.size();
+    const unsigned int n_points = points.size();
 
-  for (unsigned int p=0; p<n_points; ++p)
-    Cdensity<dim>::vector_value (points[p],
+    for (unsigned int p=0; p<n_points; ++p)
+        Magnitude<dim>::vector_value (points[p],
                                       value_list[p]);
 }
 
@@ -208,91 +210,159 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
   value1 = value1*50 + 3*fb_density(p(1),p(0))*speed/15*sin(theta);
 
   int type = 1;
-  double s = 2.0;//default = 1.0
+  double s = 1.5;//default = 1.0
   double dist;
   switch(type){
       case 0:
           //skin tension field in last paper
           if(sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.2, 2.0))<500 && p(0)<xstep*0.5 && p(1)<ystep*0.5){
               dist = sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.2, 2.0));
-              values(0) = -0.6*(p(0)-xstep*0.2)/dist;
-              values(1) = -0.6*(p(1)-ystep*0.2)/dist;
+              values(0) = -(p(0)-xstep*0.2)/dist;
+              values(1) = -(p(1)-ystep*0.2)/dist;
           } else if(sqrt(pow(p(0)-xstep*0.2, 2.0) + pow(p(1)-ystep*0.8, 2.0))<500 && p(0)<xstep*0.5 && p(1)>ystep*0.5){
               dist = sqrt(pow(p(0)-xstep*0.2, 2.0)+pow(p(1)-ystep*0.8, 2.0));
-              values(0) = -0.6*(p(0)-xstep*0.2)/dist;
-              values(1) = -0.6*(p(1)-ystep*0.8)/dist;
+              values(0) = -(p(0)-xstep*0.2)/dist;
+              values(1) = -(p(1)-ystep*0.8)/dist;
           } else if(sqrt(pow(p(0)-xstep*0.8, 2.0) + pow(p(1)-ystep*0.2, 2.0))<500 && p(0)>xstep*0.5 && p(1)<ystep*0.5){
               dist = sqrt(pow(p(0)-xstep*0.8, 2.0)+pow(p(1)-ystep*0.2, 2.0));
-              values(0) = -0.6*(p(0)-xstep*0.8)/dist;
-              values(1) = -0.6*(p(1)-ystep*0.2)/dist;
+              values(0) = -(p(0)-xstep*0.8)/dist;
+              values(1) = -(p(1)-ystep*0.2)/dist;
           } else if(sqrt(pow(p(0)-xstep*0.8, 2.0) + pow(p(1)-ystep*0.8, 2.0))<500 && p(0)>xstep*0.5 && p(1)>ystep*0.5){
               dist = sqrt(pow(p(0)-xstep*0.8, 2.0)+pow(p(1)-ystep*0.8, 2.0));
-              values(0) = -0.6*(p(0)-xstep*0.8)/dist;
-              values(1) = -0.6*(p(1)-ystep*0.8)/dist;
+              values(0) = -(p(0)-xstep*0.8)/dist;
+              values(1) = -(p(1)-ystep*0.8)/dist;
           } else {
               values(0) = 0.0;
               values(1) = 0.0;
           } 
-          values(0) += value0;
-          values(1) += value1;
+          values(0) *= s;
+          values(1) *= s;
+          //values(0) += value0;
+          //values(1) += value1;
           break;
 
       case 1:{
           //skin tension field A 
           //double sign = index%2 == 0 ? 1 : (-1);
           double sign = 1.0;
-          double radius = 100.0;
-          if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < radius*radius){
-              dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = 0.0;
-              values(1) = sign * s * 10 * (1 - dist/radius);
-          } else if (pow(p(0)-xstep*0.4, 2) + pow(p(1)-ystep*0.4, 2) < radius*radius){
-              dist = sqrt( pow(p(0)-xstep*0.4, 2) + pow(p(1)-ystep*0.4, 2) );
-              values(0) = 0.0;
-              values(1) = -sign * s * 10 * (1 - dist/radius);
-          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < radius*radius){
-              dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = 0.0;
-              values(1) = sign * s * 10 * (1 - dist/radius);
-          } else if (pow(p(0)-xstep*0.8, 2) + pow(p(1)-ystep*0.4, 2) < radius*radius){
-              dist = sqrt( pow(p(0)-xstep*0.8, 2) + pow(p(1)-ystep*0.4, 2) );
-              values(0) = 0.0;
-              values(1) = -sign * s * 10 * (1 - dist/radius);
+          double radius = 150.0;
+         
+          double p1x = xstep*0.2, p1y = ystep*0.8;
+          double p2x = xstep*0.4, p2y = ystep*0.4;
+          double p3x = xstep*0.6, p3y = ystep*0.8;
+          double p4x = xstep*0.8, p4y = ystep*0.4;
+
+          /*
+          double p1x = 900, p1y = 2100;
+          double p2x = 1300, p2y = 1300;
+          double p3x = 1700, p3y = 2100;
+          double p4x = 2100, p4y = 1300;
+          */
+          double dist1 = sqrt( sq(p(0)-p1x) + sq(p(1)-p1y) );
+          double dist2 = sqrt( sq(p(0)-p2x) + sq(p(1)-p2y) );
+          double dist3 = sqrt( sq(p(0)-p3x) + sq(p(1)-p3y) );
+          double dist4 = sqrt( sq(p(0)-p4x) + sq(p(1)-p4y) );
+          if (dist1 < radius){
+              dist = dist1;
+              if (dist < radius * 0.25) {
+                  values(0) = 0.0;
+                  values(1) = sign * s * 10 * 0.75;
+              } else {
+                  values(0) = 0.0;
+                  values(1) = sign * s * 10 * (1 - dist/radius);
+              }
+          } else if (dist2 < radius){
+              dist = dist2;
+              if (dist < radius * 0.25) {
+                  values(0) = 0.0;
+                  values(1) = -sign * s * 10 * 0.75;
+              } else {
+                  values(0) = 0.0;
+                  values(1) = -sign * s * 10 * (1 - dist/radius);
+              }
+          } else if (dist3 < radius){
+              dist = dist3;
+              if (dist < radius * 0.25) {
+                  values(0) = 0.0;
+                  values(1) = sign * s * 10 * 0.75;
+              } else {
+                  values(0) = 0.0;
+                  values(1) = sign * s * 10 * (1 - dist/radius);
+              }
+          } else if (dist4 < radius){
+              dist = dist4;
+              if (dist < radius * 0.25) {
+                  values(0) = 0.0;
+                  values(1) = -sign * s * 10 * 0.75;
+              } else {
+                  values(0) = 0.0;
+                  values(1) = -sign * s * 10 * (1 - dist/radius);
+              }
           } else {
               values(0) = 0.0;
               values(1) = 0.0;
           }
-          //values(0) += value0;
-          //values(1) += value1;
+          //values(0) += 5 * value0;
+          //values(1) += 5 * value1;
           break;
       }
 
       case 2:{
           //skin tension field B 
           double sign = 1;//index%2 == 0 ? 1 : (-1);
-          double radius = 80.0;
-          if(pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) < radius*radius){
-              dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.2, 2) );
-              values(0) = sign * (-s) * 7.5 * (1 - dist/radius);
-              values(1) = sign * (-s) * 7.5 * (1 - dist/radius);
-          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) < radius*radius){
-              dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.2, 2) );
-              values(0) = sign * s * 7.5 * (1 - dist/radius);
-              values(1) = sign* (-s) * 7.5 * (1 - dist/radius);
-          } else if (pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) < radius*radius){
-              dist = sqrt( pow(p(0)-xstep*0.2, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = sign * (-s) * 7.5 * (1 - dist/radius);
-              values(1) = sign * s * 7.5 * (1 - dist/radius);
-          } else if (pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) < radius*radius){
-              dist = sqrt( pow(p(0)-xstep*0.6, 2) + pow(p(1)-ystep*0.8, 2) );
-              values(0) = sign * s * 7.5 * (1 - dist/radius);
-              values(1) = sign * s * 7.5 * (1 - dist/radius);
+          double radius = 145.0;
+          double p1x = xstep*0.2, p1y = ystep*0.2;
+          double p2x = xstep*0.6, p2y = ystep*0.2;
+          double p3x = xstep*0.2, p3y = ystep*0.8;
+          double p4x = xstep*0.6, p4y = ystep*0.8;
+
+          double dist1 = sqrt( sq(p(0)-p1x) + sq(p(1)-p1y) );
+          double dist2 = sqrt( sq(p(0)-p2x) + sq(p(1)-p2y) );
+          double dist3 = sqrt( sq(p(0)-p3x) + sq(p(1)-p3y) );
+          double dist4 = sqrt( sq(p(0)-p4x) + sq(p(1)-p4y) );
+
+          if(dist1 < radius){
+              dist = dist1;
+              if (dist < radius * 0.25) {
+                  values(0) = sign * (-s) * 7.5 * (0.75);
+                  values(1) = sign * (-s) * 7.5 * (0.75);
+              } else {
+                  values(0) = sign * (-s) * 7.5 * (1 - dist/radius);
+                  values(1) = sign * (-s) * 7.5 * (1 - dist/radius);
+              }
+          } else if (dist2 < radius){
+              dist = dist2;
+              if (dist < radius * 0.25) {
+                  values(0) = sign * s * 7.5 * (0.75);
+                  values(1) = sign* (-s) * 7.5 * (0.75);
+              } else {
+                  values(0) = sign * s * 7.5 * (1 - dist/radius);
+                  values(1) = sign* (-s) * 7.5 * (1 - dist/radius);
+              }
+          } else if (dist3 < radius){
+              dist = dist3;
+              if (dist < radius * 0.25) {
+                  values(0) = sign * (-s) * 7.5 * (0.75);
+                  values(1) = sign * s * 7.5 * (0.75);
+              } else {
+                  values(0) = sign * (-s) * 7.5 * (1 - dist/radius);
+                  values(1) = sign * s * 7.5 * (1 - dist/radius);
+              }
+          } else if (dist4 < radius){
+              dist = dist4;
+              if (dist < radius * 0.25) {
+                  values(0) = sign * s * 7.5 * (0.75);
+                  values(1) = sign * s * 7.5 * (0.75);
+              } else {
+                  values(0) = sign * s * 7.5 * (1 - dist/radius);
+                  values(1) = sign * s * 7.5 * (1 - dist/radius);
+              }
           } else {
               values(0) = 0.0;
               values(1) = 0.0;
           }
-          values(0) += value0;
-          values(1) += value1;
+          //values(0) += value0;
+          //values(1) += value1;
           break;
       }
       case 3:{
@@ -307,12 +377,12 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
                   theta -= M_PI / 3.0;
               }
               if(theta < M_PI / 6.0) {
-                  values(0) = (p(0) - xstep*0.5)/dist * (1 - 0.04 * dist_to_mid_ring);
-                  values(1) = (p(1) - ystep*0.5)/dist * (1 - 0.04 * dist_to_mid_ring);
+                  values(0) = s * (p(0) - xstep*0.5)/dist * (1 - 0.04 * dist_to_mid_ring);
+                  values(1) = s * (p(1) - ystep*0.5)/dist * (1 - 0.04 * dist_to_mid_ring);
               }
           }
-          values(0) += value0;
-          values(1) += value1;
+          //values(0) += value0;
+          //values(1) += value1;
           break;
       }
       default:
@@ -422,10 +492,9 @@ Solid<dim>::~Solid()
 // In order to do this, we make use of a ComponentSelectFunction which acts
 // as a mask and sets the J_component of n_components to 1. This is exactly what
 // we want. Have a look at its usage in step-20 for more information.
-  template <int dim>
-  void Solid<dim>::RunIncrementalNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
-  {
-    update_qph_for_material_property(collagen_orientation, collagen_density);
+template <int dim>
+void Solid<dim>::RunIncrementalNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion, Mat_DP &collagen_density) {
+    update_qph_for_material_property(collagen_orientation, collagen_dispersion, collagen_density);
     time.restart();
     time.increment();
     // We then declare the incremental solution update $\varDelta
@@ -434,7 +503,7 @@ Solid<dim>::~Solid()
     //
     // At the beginning, we reset the solution update for this time step...
     BlockVector<double> solution_delta(dofs_per_block);
-    assemble_perturbation();
+    //assemble_perturbation();
     bool first_round = true;
     while (time.current() <= time.end()) {
         solution_delta = 0.0;
@@ -446,18 +515,19 @@ Solid<dim>::~Solid()
 
         solve_nonlinear_timestep(solution_delta);
         solution_n += solution_delta;
-        if (first_round) {
+        //if (first_round) {
+            assemble_perturbation();
             solution_n += solution_perturbation;
             first_round = false;
-        }
+        //}
         // ...and plot the results before moving on happily to the next time
         // step:
         time.increment();
     }
     output_deformation_profile("healing");
-    output_woundcontour();
-    update_qph_restore();
-  }
+    //output_woundcontour();
+    update_qph_restore();//solution is restored, but tissue_displacement are not
+}
 
 template <int dim>
 void Solid<dim>::RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_density){
@@ -475,16 +545,18 @@ void Solid<dim>::RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_den
         // ...and plot the results before moving on happily to the next time
         // step:
     output_deformation_profile("healing");
-    output_woundcontour();
+    //output_woundcontour();
     update_qph_restore();
 }
 
 template <int dim>
-void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
+void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion, 
+                       Mat_DP &collagen_density)
 {
     make_grid();
     mCollagenDirection.Set(collagen_orientation);
-    mCollagenDensity.Set(collagen_density);
+    mCollagenDispersion.Set(collagen_dispersion, 0.1);
+    mCollagenDensity.Set(collagen_density, 0.2);
     system_setup();
     {
       ConstraintMatrix constraints;
@@ -502,6 +574,12 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
 
     tissue_displacement_x = Mat_DP(mYstep, mXstep);
     tissue_displacement_y = Mat_DP(mYstep, mXstep);
+    for (size_t i = 0; i < mYstep; i++) {
+        for (size_t j = 0; j < mXstep; j++) {
+            tissue_displacement_x[i][j] = 0.0;
+            tissue_displacement_y[i][j] = 0.0;
+        }
+    }
 }
 // @sect3{Private interface}
 
@@ -1014,6 +1092,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
     // Next we setup the initial quadrature
     // point data:
     std::vector<Vector<double> >   dir_values (n_q_points, Vector<double>(dim));
+    std::vector<double>            disp_values (n_q_points, 0.0);
     std::vector<double>            cde_values (n_q_points, 0.0);
 
     for (typename Triangulation<dim>::active_cell_iterator cell =
@@ -1030,6 +1109,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         std::vector<Point<dim> > points = fe_values.get_quadrature_points();
         
         mCollagenDirection.vector_value_list (points, dir_values); 
+        mCollagenDispersion.vector_value_list (points, disp_values); 
         mCollagenDensity.vector_value_list (points, cde_values);
                       
         Tensor<1,dim> M_par;
@@ -1038,7 +1118,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
             M_par[0] = dir_values[q_point][0]; 
             M_par[1] = dir_values[q_point][1]; 
             //std::cout<<M_par[0]<<" "<<M_par[1]<<std::endl;    
-            lqph[q_point].setup_lqp(parameters, cde_values[q_point], M_par);
+            lqph[q_point].setup_lqp(parameters, cde_values[q_point], M_par, disp_values[q_point]);
         }
       }
   }
@@ -1188,19 +1268,22 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
   template <int dim>
   void
   Solid<dim>::update_qph_for_material_property(const Mat_DP& collagen_direction,
+                                               const Mat_DP& collagen_dispersion,
                                                const Mat_DP& collagen_density)
   {
     timer.enter_subsection("Update QPH data for collagen density and orientation change");
     std::cout << " UQPHmaterial_property " << std::flush;
 
     mCollagenDirection.Set(collagen_direction);
-    mCollagenDensity.Set(collagen_density);
+    mCollagenDispersion.Set(collagen_dispersion, 0.1);
+    mCollagenDensity.Set(collagen_density, 0.2);
 
     FEValues<dim> fe_values(fe, qf_cell, update_values | update_gradients |
                                          update_quadrature_points);
 
 
     std::vector<Vector<double>> dir_values(n_q_points, Vector<double>(dim));
+    std::vector<double> disp_values(n_q_points, 0.0);
     std::vector<double> cdensity_values(n_q_points, 0.0);
 
     for(typename DoFHandler<dim>::active_cell_iterator cell = dof_handler_ref.begin_active();
@@ -1210,6 +1293,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         fe_values.reinit(cell);
 
         mCollagenDirection.vector_value_list(fe_values.get_quadrature_points(), dir_values);//mCollagenDirection is data member of Solid
+        mCollagenDispersion.vector_value_list(fe_values.get_quadrature_points(), disp_values);//mCollagenDispersion is data member of Solid
         mCollagenDensity.vector_value_list(fe_values.get_quadrature_points(), cdensity_values);//mCollagenDensity is data member of Solid
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point){
@@ -1217,6 +1301,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
             M_par[0] = dir_values[q_point][0];
             M_par[1] = dir_values[q_point][1];
             lqph[q_point].update_values_for_material_property(M_par,
+                                                              disp_values[q_point],
                                                               cdensity_values[q_point]);
         }
     }
@@ -1266,6 +1351,9 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
                                      // assembling the tangent matrix when
                                      // convergence is attained.
     unsigned int newton_iteration = 0;
+    double last_error_u = 0.0, 
+           last_error_p = 0.0,
+           last_error_J = 0.0;
     for (; newton_iteration < parameters.max_iterations_NR;
          ++newton_iteration)
       {
@@ -1293,10 +1381,23 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
             print_conv_footer();
             break;
         }
+        if (newton_iteration > 0) {
+            if ( error_residual_norm.u > 1.5 * last_error_u) { 
+                 //error_residual_norm.p > 1.5 * last_error_p or
+                 //error_residual_norm.J > 1.5 * last_error_J ) {
+                std::cout << " cannot converge but we will accept the result " << std::endl;
+                print_conv_footer();
+                break;
+            }
+        }
 
+        //record last error u
+        last_error_u = error_residual_norm.u;
+        last_error_p = error_residual_norm.p;
+        last_error_J = error_residual_norm.J;
         /*
         if (newton_iteration == parameters.max_iterations_NR-1 
-            && error_update_norm.u > 10e-3){
+            && error_update_norm.u > 10e-2){
             time.dec_delta_t();
         }*/
 
@@ -1333,6 +1434,9 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         update_qph_incremental(solution_delta);
         BlockVector<double> solution_temp(solution_n);
         solution_temp += solution_delta;
+
+        output_results_temp(newton_iteration, solution_temp);
+
 
         std::cout << " | " << std::fixed << std::setprecision(3) << std::setw(7)
                   << std::scientific << lin_solver_output.first << "  "
@@ -1587,26 +1691,20 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
     PointHistory<dim> *lqph =
       reinterpret_cast<PointHistory<dim>*>(cell->user_pointer());
 
-    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
-      {
-        for (unsigned int k = 0; k < dofs_per_cell; ++k)
-          {
+    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
+        for (unsigned int k = 0; k < dofs_per_cell; ++k) {
             const unsigned int k_group = fe.system_to_base_index(k).first.first;
 
             if (k_group == u_dof)
-              {
                 scratch.Grad_Nx[q_point][k] = scratch.fe_values_ref[u_fe].gradient(k, q_point);
-              }
             else if (k_group == p_dof)
-              scratch.Nx[q_point][k] = scratch.fe_values_ref[p_fe].value(k,
-                                                                         q_point);
+                scratch.Nx[q_point][k] = scratch.fe_values_ref[p_fe].value(k, q_point);
             else if (k_group == J_dof)
-              scratch.Nx[q_point][k] = scratch.fe_values_ref[J_fe].value(k,
-                                                                         q_point);
+                scratch.Nx[q_point][k] = scratch.fe_values_ref[J_fe].value(k, q_point);
             else
               Assert(k_group <= J_dof, ExcInternalError());
-          }
-      }
+        }
+    }
 
     // Now we build the local cell stiffness matrix. Since the global and
     // local system matrices are symmetric, we can exploit this property by
@@ -1758,7 +1856,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         for (unsigned int k = 0; k < dofs_per_cell; ++k) {
             const unsigned int k_group = fe.system_to_base_index(k).first.first;
 
-            if (k_group == u_dof)
+            if (k_group == u_dof) 
               scratch.Grad_Nx[q_point][k]
                 = scratch.fe_values_ref[u_fe].gradient(k, q_point);
             else if (k_group == p_dof)
@@ -1772,6 +1870,8 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         }
     }
 
+    auto points = scratch.fe_values_ref.get_quadrature_points();
+    
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
         const Tensor<2, dim> S = lqph[q_point].get_S();
         const double det_Fe = lqph[q_point].get_det_Fe();
@@ -1791,12 +1891,20 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         // definition of the rhs as the negative
         // of the residual, these contributions
         // are subtracted.
+        double tethering_coeff = 0.002;
+        Vector<double> deformation(dim+2);
+        //const BlockVector<double> solution_total(get_total_solution(solution_delta));
+        VectorTools::point_value(dof_handler_ref, solution_n, points[q_point], deformation);
         for (unsigned int i = 0; i < dofs_per_cell; ++i) {
             const unsigned int i_group = fe.system_to_base_index(i).first.first;
-
-            if (i_group == u_dof)
-              data.cell_rhs(i) -= double_contract<0,0,1,1>(transpose(F)*Grad_Nx[i], S) * JxW;
-            else if (i_group == p_dof)
+            const unsigned int component_i = fe.system_to_component_index(i).first;
+            if (i_group == u_dof) {
+                data.cell_rhs(i) -= double_contract<0,0,1,1>(transpose(F)*Grad_Nx[i], S) * JxW;
+                if (deformation[0] > 50.0 or deformation[1] > 50.0) {
+                    cout << "deformation = " << deformation[0] << ", " << deformation[1] << endl;
+                }
+                data.cell_rhs(i) -= tethering_coeff * deformation[component_i] * JxW;
+            } else if (i_group == p_dof)
               data.cell_rhs(i) -= Nx[i] * (det_Fe - J_tilde) * JxW;
             else if (i_group == J_dof)
               data.cell_rhs(i) -= Nx[i] * (dPsi_vol_dJ - p_tilde) * JxW;
@@ -1808,7 +1916,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
     RightHandSide<dim> fibroblast_force;
     std::vector<Vector<double>> fibroblast_force_values(n_q_points, Vector<double>(dim));
 
-    auto points = scratch.fe_values_ref.get_quadrature_points();
+    //auto points = scratch.fe_values_ref.get_quadrature_points();
     fibroblast_force.vector_value_list(points, fibroblast_force_values);
 	//fibroblast_force should data member of Solid
    
@@ -1890,7 +1998,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
         const unsigned int i_group = fe.system_to_base_index(i).first.first;
 
         if (i_group == u_dof){
-            data.cell_rhs(i) = double(rand())/double(RAND_MAX) * parameters.scale * 0.001;
+            data.cell_rhs(i) = double(rand())/double(RAND_MAX) * 0.001;
         } else if (i_group == p_dof){
             data.cell_rhs(i) = 0.0;
         } else if (i_group == J_dof){
@@ -1910,9 +2018,9 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
 // be specified at the zeroth iteration and subsequently no
 // additional contributions are to be made since the constraints
 // are already exactly satisfied.
-  template <int dim>
-  void Solid<dim>::make_constraints(const int & it_nr)
-  {
+template <int dim>
+void Solid<dim>::make_constraints(const int & it_nr)
+{
     std::cout << " CST " << std::flush;
 
     // Since the constraints are different at different Newton iterations, we
@@ -1981,8 +2089,34 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density)
                                                  fe.component_mask(z_displacement));
     */}
 
+    bool extra_constraint = false;
+    if (!extra_constraint) {
+        constraints.close();
+        return;
+    } 
+    std::vector<bool> dof_touched(dof_handler_ref.n_dofs(), false);
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler_ref.begin_active(),
+                                                 endc = dof_handler_ref.end();
+
+    //cout << "dofs_per_cell = " << fe.dofs_per_cell << endl;
+    std::vector<unsigned int> local_dof_indices(fe.dofs_per_cell);
+    for (; cell != endc; ++cell) {
+        cell->get_dof_indices (local_dof_indices);
+        Point<dim> cell_center = cell->center();
+        if (abs(cell_center(0) - 0.5 * xstep) < 50.0 and
+                cell_center(1) > 0.25 * ystep and cell_center(1) < 0.75 * ystep){
+            //cout << "found cell to constrain" << endl;
+            for(unsigned int dof_index : local_dof_indices) {
+                if (dof_touched[dof_index] == false) {
+                    dof_touched[dof_index] = true;
+                    constraints.add_line(dof_index);
+                    constraints.set_inhomogeneity(dof_index, 0.0);//
+                }
+            }
+        }
+    }
     constraints.close();
-  }
+}
 
 // @sect4{Solid::solve_linear_system}
 // Solving the entire block system is a bit problematic as there are no
@@ -2583,7 +2717,7 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
 
     std::ostringstream filename;
     static int out_i = 0;
-    filename << "solution-" << out_i << suffix << ".vtk";
+    filename << "output/solution-" << out_i << suffix << ".vtk";
     out_i++;
 
     std::ofstream output(filename.str().c_str());
@@ -2591,7 +2725,7 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
 
     //============================================================
     Point <dim> point;
-    Vector<double> value(4);
+    Vector<double> value(dim+2);
 
     for(int i=0; i<mYstep; i+=10) {
         for(int j=0; j<mXstep; j+=10) {
@@ -2618,7 +2752,7 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
 }
 
 template <int dim>
-void Solid<dim>::output_woundcontour(){
+void Solid<dim>::Output_woundcontour(){
     Mat_DP woundcontour(mYstep,mXstep);
     DP tdx,tdy;
     for(size_t i=0; i<mYstep; i++){
