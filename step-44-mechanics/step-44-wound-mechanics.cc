@@ -64,6 +64,7 @@ extern Mat_DP *fibroblast_density_ptr;
 extern Mat_DP *speedfield_ptr;
 extern Mat_DP *thetafield_ptr;
 
+extern DP current_time;
 
 // We then stick everything that relates to this tutorial program into a
 // namespace of its own, and import all the deal.II function and class names
@@ -242,15 +243,16 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
           break;
 
       case 1:{
-          //skin tension field A 
+          //skin tension field A
+          int index = int(current_time / 15.0);
           //double sign = index%2 == 0 ? 1 : (-1);
           double sign = 1.0;
           double radius = 150.0;
          
-          double p1x = xstep*0.2, p1y = ystep*0.8;
-          double p2x = xstep*0.4, p2y = ystep*0.4;
-          double p3x = xstep*0.6, p3y = ystep*0.8;
-          double p4x = xstep*0.8, p4y = ystep*0.4;
+          Point<dim> p1(xstep*0.2, ystep*0.75);
+          Point<dim> p2(xstep*0.3, ystep*0.35);
+          Point<dim> p3(xstep*0.75, ystep*0.8);
+          Point<dim> p4(xstep*0.8, ystep*0.35);
 
           /*
           double p1x = 900, p1y = 2100;
@@ -258,10 +260,10 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
           double p3x = 1700, p3y = 2100;
           double p4x = 2100, p4y = 1300;
           */
-          double dist1 = sqrt( sq(p(0)-p1x) + sq(p(1)-p1y) );
-          double dist2 = sqrt( sq(p(0)-p2x) + sq(p(1)-p2y) );
-          double dist3 = sqrt( sq(p(0)-p3x) + sq(p(1)-p3y) );
-          double dist4 = sqrt( sq(p(0)-p4x) + sq(p(1)-p4y) );
+          double dist1 = p.distance(p1);
+          double dist2 = p.distance(p2);
+          double dist3 = p.distance(p3);
+          double dist4 = p.distance(p4);
           if (dist1 < radius){
               dist = dist1;
               if (dist < radius * 0.25) {
@@ -310,16 +312,16 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
       case 2:{
           //skin tension field B 
           double sign = 1;//index%2 == 0 ? 1 : (-1);
-          double radius = 145.0;
-          double p1x = xstep*0.2, p1y = ystep*0.2;
-          double p2x = xstep*0.6, p2y = ystep*0.2;
-          double p3x = xstep*0.2, p3y = ystep*0.8;
-          double p4x = xstep*0.6, p4y = ystep*0.8;
+          double radius = 150.0;
+          Point<dim> p1(xstep*0.2, ystep*0.22);
+          Point<dim> p2(xstep*0.6, ystep*0.22);
+          Point<dim> p3(xstep*0.2, ystep*0.78);
+          Point<dim> p4(xstep*0.6, ystep*0.78);
 
-          double dist1 = sqrt( sq(p(0)-p1x) + sq(p(1)-p1y) );
-          double dist2 = sqrt( sq(p(0)-p2x) + sq(p(1)-p2y) );
-          double dist3 = sqrt( sq(p(0)-p3x) + sq(p(1)-p3y) );
-          double dist4 = sqrt( sq(p(0)-p4x) + sq(p(1)-p4y) );
+          double dist1 = p.distance(p1);
+          double dist2 = p.distance(p2);
+          double dist3 = p.distance(p3);
+          double dist4 = p.distance(p4);
 
           if(dist1 < radius){
               dist = dist1;
@@ -368,17 +370,16 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
       case 3:{
           values(0) = 0.0;
           values(1) = 0.0;
-          if(pow(p(0)-xstep*0.5, 2) + pow(p(1)-ystep*0.5, 2) > 700*700 and
-                  pow(p(0)-xstep*0.5, 2) + pow(p(1)-ystep*0.5, 2) < 750*750 ){
-              dist = sqrt( pow(p(0)-xstep*0.5, 2) + pow(p(1)-ystep*0.5, 2) );
-              double dist_to_mid_ring = dist - 725;
+          double dist_to_center = p.distance(Point<dim>(xstep*0.5, ystep*0.5));
+          if(dist_to_center > 700 and dist_to_center <750) {
+              double dist_to_mid_ring = dist_to_center - 725;
               double theta = get_theta(p(0) - xstep*0.5, p(1) - ystep*0.5);
               while(theta > M_PI / 3.0) {
                   theta -= M_PI / 3.0;
               }
               if(theta < M_PI / 6.0) {
-                  values(0) = s * (p(0) - xstep*0.5)/dist * (1 - 0.04 * dist_to_mid_ring);
-                  values(1) = s * (p(1) - ystep*0.5)/dist * (1 - 0.04 * dist_to_mid_ring);
+                  values(0) = s * (p(0) - xstep*0.5)/dist_to_center * (1 - 0.04 * dist_to_mid_ring);
+                  values(1) = s * (p(1) - ystep*0.5)/dist_to_center * (1 - 0.04 * dist_to_mid_ring);
               }
           }
           //values(0) += value0;
@@ -530,7 +531,7 @@ void Solid<dim>::RunIncrementalNonlinear(Mat_DP &collagen_orientation, Mat_DP &c
 }
 
 template <int dim>
-void Solid<dim>::RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_density){
+void Solid<dim>::RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion, Mat_DP &collagen_density){
     BlockVector<double> solution_delta(dofs_per_block);
     solution_delta = 0.0;
 
@@ -538,7 +539,7 @@ void Solid<dim>::RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_den
         // $\mathbf{\Xi}_{\textrm{n}} = \mathbf{\Xi}_{\textrm{n-1}} +
         // \varDelta \mathbf{\Xi}$...
         //update_qph_for_growth();
-    update_qph_for_material_property(collagen_orientation, collagen_density);
+    update_qph_for_material_property(collagen_orientation, collagen_dispersion, collagen_density);
 
     solve_nonlinear_timestep(solution_delta);
     solution_n += solution_delta;
@@ -553,7 +554,7 @@ template <int dim>
 void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion, 
                        Mat_DP &collagen_density)
 {
-    make_grid();
+    make_grid_2();
     mCollagenDirection.Set(collagen_orientation);
     mCollagenDispersion.Set(collagen_dispersion, 0.1);
     mCollagenDensity.Set(collagen_density, 0.2);
@@ -884,10 +885,17 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion
 //
 // We then determine the volume of the reference configuration and print it
 // for comparison:
-  template <int dim>
-  void Solid<dim>::make_grid() {        
+template <int dim>
+void Solid<dim>::make_grid_1() {        
+    Point<dim> hole_center1(0.5*mXstep, 0.5*mYstep);
     if (mXstep == mYstep) {
-        GridGenerator::hyper_cube (triangulation, 0, mXstep); 
+        //GridGenerator::hyper_cube (triangulation, 0, mXstep);
+        const double inner_radius = 400, outer_radius = 0.5 * mXstep;
+        GridGenerator::hyper_cube_with_cylindrical_hole (triangulation, inner_radius, outer_radius);
+        GridTools::shift(Point<dim>(0.5*mXstep, 0.5*mXstep), triangulation); 
+        //const std::vector<unsigned int> holes = {1,1};
+        //GridGenerator::cheese (triangulation, holes); 
+        //GridTools::scale(2000.0/3.0, triangulation);
     } else {
         Point<dim> p0(0,0);
         Point<dim> p1(mXstep, mYstep);
@@ -901,16 +909,196 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion
     typename Triangulation<dim>::active_cell_iterator cell =
     triangulation.begin_active(), endc = triangulation.end();
 
-    triangulation.refine_global(std::max (1U, parameters.global_refinement));
     int boundary_count = 0;
     for (; cell != endc; ++cell)
       for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face){
           if (cell->face(face)->at_boundary()) {
               boundary_count++;
-              cell->face(face)->set_boundary_id (1);
+              Point<dim> cell_center = cell->center();
+              Point<dim> face_center = cell->face(face)->center();
+              double dist_to_center = face_center.distance(hole_center1);
+              
+              if (face_center(1) > 0.98 * mYstep or face_center(1) < 0.02 * mYstep) {
+                  cell->face(face)->set_boundary_id (2);
+                  cout << "boundary_id = 2" << endl;
+              } else if (dist_to_center < 0.4 * mXstep) {
+                  cout << "boundary_id = 4" << endl;
+                  cell->face(face)->set_boundary_id (4);
+              } else {
+                  cell->face(face)->set_boundary_id (1);
+              }
           }
       }
+    cout << "all face boundary_id set" << std::endl;
+    
     cout << "boundary_count = " << boundary_count << endl;
+
+    static const PolarManifold<dim> myManifold(hole_center1); 
+    triangulation.set_manifold(11, myManifold); 
+    for (auto cell = triangulation.begin_active(); cell != triangulation.end(); ++cell) {
+        for(unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face){
+            cell->face(face)->set_all_manifold_ids(numbers::flat_manifold_id);
+            if (cell->face(face)->at_boundary() and cell->face(face)->boundary_id() == 4) {
+                cout << "cell face marked with curved manifold 11" << endl;
+                cell->face(face)->set_all_manifold_ids(11);
+            }
+        }
+    }
+
+
+    triangulation.refine_global(std::max (1U, parameters.global_refinement));
+}
+
+inline
+void create_2d_grid(
+    const std::vector<Point<2>> &vertices,
+    const std::vector<
+        std::array<unsigned int, GeometryInfo<2>::vertices_per_cell>>
+        &               vertex_indices,
+    Triangulation<2> &coarse_grid)
+{
+  std::vector<CellData<2>> cells(vertex_indices.size());
+  for (unsigned int i = 0; i < cells.size(); ++i)
+    {
+      for (unsigned int j = 0; j < GeometryInfo<2>::vertices_per_cell; ++j)
+        cells[i].vertices[j] = vertex_indices[i][j];
+    }
+  coarse_grid.create_triangulation(vertices, cells, SubCellData());
+}
+
+
+template <int dim>
+void Solid<dim>::make_grid_2() {        
+    Point<dim> hole_center1(0.3 * mXstep, 0.5 * mYstep);
+    Point<dim> hole_center2(0.7 * mXstep, 0.5 * mYstep);
+    
+    if (mXstep == mYstep) {
+        GridGenerator::hyper_cube (triangulation, 0, mXstep);
+        //const std::vector<unsigned int> holes = {1,1};
+        //GridGenerator::cheese (triangulation, holes); 
+        //GridTools::scale(2000.0/3.0, triangulation);
+    } else {
+        Point<dim> p0(0,0);
+        Point<dim> p1(mXstep, mYstep);
+        //GridGenerator::hyper_rectangle (triangulation, p0, p1);
+        const double inner_radius = 400;
+        std::vector<Point<dim>> vertices;
+        //first push vertices on hole1
+        double theta;
+        for(int i = 0; i < 8; i++) {
+            theta = 2 * M_PI * (double)i / 8.0;
+            vertices.push_back(hole_center1 + Point<dim>(inner_radius * cos(theta), inner_radius * sin(theta)));
+        }
+        //then push vertices on hole2
+        for(int i = 0; i < 8; i++) {
+            theta = 2 * M_PI * (double)i / 8.0 + M_PI;
+            vertices.push_back(hole_center2 + Point<dim>(inner_radius * cos(theta), inner_radius * sin(theta)));
+        }
+        //then push vertices on outer boundary
+        int outer_start_index = 16;
+        //index 16 - 22 will connect with index 1 - 7
+        vertices.push_back(Point<dim>(hole_center1[0] + inner_radius, mYstep));
+        vertices.push_back(Point<dim>(hole_center1[0], mYstep));
+        vertices.push_back(Point<dim>(0.0, mYstep));
+        vertices.push_back(Point<dim>(0.0, 0.5 * mYstep));
+        vertices.push_back(Point<dim>(0.0, 0.0));
+        vertices.push_back(Point<dim>(hole_center1[0], 0.0));
+        vertices.push_back(Point<dim>(hole_center1[0] + inner_radius, 0.0));
+        //index 23 - 29 will connect with index 9 - 15 
+        vertices.push_back(Point<dim>(hole_center2[0] - inner_radius, 0.0));
+        vertices.push_back(Point<dim>(hole_center2[0], 0.0));
+        vertices.push_back(Point<dim>(mXstep, 0.0));
+        vertices.push_back(Point<dim>(mXstep, 0.5 * mYstep));
+        vertices.push_back(Point<dim>(mXstep, mYstep));
+        vertices.push_back(Point<dim>(hole_center2[0], mYstep));
+        vertices.push_back(Point<dim>(hole_center2[0] - inner_radius, mYstep));
+        cout << "vertices number = " << vertices.size() << endl;
+
+        std::vector<std::array<unsigned int, GeometryInfo<2>::vertices_per_cell>>
+            cell_vertices = {};
+        for(int i = 1; i < 7; i++) {
+            int inner_i1 = i;
+            int inner_i2 = i+1;
+            int outer_i1 = i+15;
+            int outer_i2 = i+16;
+            cout << "push a cell composed of " << inner_i1 << ", " << outer_i1 << ", " << outer_i2 << ", " << inner_i2 << endl;
+            cell_vertices.push_back({inner_i2, inner_i1, outer_i2, outer_i1});   
+        }
+        for(int i = 9; i < 15; i++) {
+            int inner_i1 = i;
+            int inner_i2 = i+1;  
+            int outer_i1 = i+14;
+            int outer_i2 = i+15;
+            cell_vertices.push_back({inner_i2, inner_i1, outer_i2, outer_i1});
+        }
+        cout << "vert 0 (" << vertices[0][0] << ", " << vertices[0][1] << ")" << endl;
+        cout << "vert 8 (" << vertices[8][0] << ", " << vertices[8][1] << ")" << endl;
+        cout << "vert 7 (" << vertices[7][0] << ", " << vertices[7][1] << ")" << endl;
+        cout << "vert 9 (" << vertices[9][0] << ", " << vertices[9][1] << ")" << endl;
+        cout << "vert 22 (" << vertices[22][0] << ", " << vertices[22][1] << ")" << endl;
+        cout << "vert 23 (" << vertices[23][0] << ", " << vertices[23][1] << ")" << endl;
+        cell_vertices.push_back({1, 15, 16, 29});
+        cell_vertices.push_back({0, 8, 1, 15});
+        cell_vertices.push_back({7, 9, 0, 8});
+        cell_vertices.push_back({7, 22, 9, 23});
+
+        create_2d_grid(vertices, cell_vertices, triangulation);
+    }                           
+    
+    vol_reference = GridTools::volume(triangulation);
+    vol_current = vol_reference;
+    std::cout << "Grid:\n\t Reference volume: " << vol_reference << std::endl;
+	    
+    typename Triangulation<dim>::active_cell_iterator cell =
+    triangulation.begin_active(), endc = triangulation.end();
+
+    int boundary_count = 0;
+    for (; cell != endc; ++cell)
+      for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face){
+          if (cell->face(face)->at_boundary()) {
+              boundary_count++;
+              Point<dim> cell_center = cell->center();
+              Point<dim> face_center = cell->face(face)->center();
+              double dist_to_center1 = face_center.distance(hole_center1);
+              double dist_to_center2 = face_center.distance(hole_center2);
+              
+              if (face_center(1) > 0.98 * mYstep or face_center(1) < 0.02 * mYstep) {
+                  cell->face(face)->set_boundary_id (2);
+                  cout << "boundary_id = 2" << endl;
+              } else if (dist_to_center1 < 400) {
+                  cout << "boundary_id = 4" << endl;
+                  cell->face(face)->set_boundary_id (4);
+              } else if (dist_to_center2 < 400) {
+                  cout << "boundary_id = 5" << endl;
+                  cell->face(face)->set_boundary_id (5);
+              } else {
+                  cell->face(face)->set_boundary_id (1);
+              }
+          }
+      }
+    cout << "all face boundary_id set" << std::endl;
+    
+    cout << "boundary_count = " << boundary_count << endl;
+
+    static const PolarManifold<dim> myManifold1(hole_center1); 
+    static const PolarManifold<dim> myManifold2(hole_center2); 
+    triangulation.set_manifold(11, myManifold1); 
+    triangulation.set_manifold(22, myManifold2); 
+    for (auto cell = triangulation.begin_active(); cell != triangulation.end(); ++cell) {
+        for(unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face){
+            cell->face(face)->set_all_manifold_ids(numbers::flat_manifold_id);
+            if (cell->face(face)->at_boundary() and cell->face(face)->boundary_id() == 4) {
+                cout << "cell face marked with curved manifold 11" << endl;
+                cell->face(face)->set_all_manifold_ids(11);
+            } else if (cell->face(face)->at_boundary() and cell->face(face)->boundary_id() == 5) {
+                cout << "cell face marked with curved manifold 22" << endl;
+                cell->face(face)->set_all_manifold_ids(22);
+            }
+        }
+    }
+
+
+    triangulation.refine_global(std::max (1U, parameters.global_refinement));
   }
 
 
@@ -1361,6 +1549,14 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion
 
         tangent_matrix = 0.0;
         system_rhs = 0.0;
+
+        if (newton_iteration > 0) {
+            if (time.end() - time.current() < time.get_delta_t()) {
+                std::cout << " last timestep, hard to converge, we will accept the result from first newton iteration. " << std::endl; 
+                print_conv_footer();
+                break;
+            }
+        }
 
         assemble_system_rhs();
         get_error_residual(error_residual);
@@ -1891,7 +2087,7 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion
         // definition of the rhs as the negative
         // of the residual, these contributions
         // are subtracted.
-        double tethering_coeff = 0.002;
+        double tethering_coeff = 0.0001;
         Vector<double> deformation(dim+2);
         //const BlockVector<double> solution_total(get_total_solution(solution_delta));
         VectorTools::point_value(dof_handler_ref, solution_n, points[q_point], deformation);
@@ -1900,9 +2096,9 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion
             const unsigned int component_i = fe.system_to_component_index(i).first;
             if (i_group == u_dof) {
                 data.cell_rhs(i) -= double_contract<0,0,1,1>(transpose(F)*Grad_Nx[i], S) * JxW;
-                if (deformation[0] > 50.0 or deformation[1] > 50.0) {
-                    cout << "deformation = " << deformation[0] << ", " << deformation[1] << endl;
-                }
+                //if (deformation[0] > 50.0 or deformation[1] > 50.0) {
+                //    cout << "deformation = " << deformation[0] << ", " << deformation[1] << endl;
+                //}
                 data.cell_rhs(i) -= tethering_coeff * deformation[component_i] * JxW;
             } else if (i_group == p_dof)
               data.cell_rhs(i) -= Nx[i] * (det_Fe - J_tilde) * JxW;
@@ -2070,8 +2266,8 @@ void Solid<dim>::make_constraints(const int & it_nr)
                                                  constraints,
                                                  components);
     }
-    {/*
-      const int boundary_id = 1;
+    {
+      const int boundary_id = 2;
 
       std::vector<bool> components(n_components, true);
 
@@ -2080,14 +2276,16 @@ void Solid<dim>::make_constraints(const int & it_nr)
                                                  boundary_id,
                                                  ZeroFunction<dim>(n_components),
                                                  constraints,
-                                                 fe.component_mask(z_displacement));
+                                                 //components);
+                                                 fe.component_mask(x_displacement));
       else
         VectorTools::interpolate_boundary_values(dof_handler_ref,
                                                  boundary_id,
                                                  ZeroFunction<dim>(n_components),
                                                  constraints,
-                                                 fe.component_mask(z_displacement));
-    */}
+                                                 //components);
+                                                 fe.component_mask(x_displacement));
+    }
 
     bool extra_constraint = false;
     if (!extra_constraint) {
@@ -2103,14 +2301,14 @@ void Solid<dim>::make_constraints(const int & it_nr)
     for (; cell != endc; ++cell) {
         cell->get_dof_indices (local_dof_indices);
         Point<dim> cell_center = cell->center();
-        if (abs(cell_center(0) - 0.5 * xstep) < 50.0 and
-                cell_center(1) > 0.25 * ystep and cell_center(1) < 0.75 * ystep){
+        if (abs(cell_center(0) - 0.5 * xstep) < 30.0 and
+                cell_center(1) > 0.5 * ystep and cell_center(1) < 0.55 * ystep){
             //cout << "found cell to constrain" << endl;
             for(unsigned int dof_index : local_dof_indices) {
                 if (dof_touched[dof_index] == false) {
                     dof_touched[dof_index] = true;
                     constraints.add_line(dof_index);
-                    constraints.set_inhomogeneity(dof_index, 0.0);//
+                    //constraints.set_inhomogeneity(dof_index, 0.0);//
                 }
             }
         }
@@ -2724,6 +2922,7 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
     data_out.write_vtk(output);
 
     //============================================================
+    
     Point <dim> point;
     Vector<double> value(dim+2);
 
@@ -2731,13 +2930,20 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
         for(int j=0; j<mXstep; j+=10) {
             point(0) = (double)j;
             point(1) = (double)i;
-            VectorTools::point_value(dof_handler_ref, solution_n, point, value);
-            tissue_displacement_x[i][j] = value(0);
-            tissue_displacement_y[i][j] = value(1);
+            try {
+                VectorTools::point_value(dof_handler_ref, solution_n, point, value);
+                tissue_displacement_x[i][j] = value(0);
+                tissue_displacement_y[i][j] = value(1);
             //cout << "tissue_displacement" << value(0) << ", " << value(1) << ", "
             //                              << value(2) << ", " << value(3) << endl;
+            } catch (...) {
+                cout << "Caught exception from point_value" << endl; 
+            }
         }
     }
+ 
+
+    /*
     for(int i=0; i<mYstep; i++) {
         for(int j=0; j<mXstep; j++) {
             point(0) = (double)j;
@@ -2749,6 +2955,7 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
             }
         }
     }
+    */
 }
 
 template <int dim>
