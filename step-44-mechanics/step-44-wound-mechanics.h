@@ -56,8 +56,8 @@
 
 #include "nr.h"
 #include "parameters.h"
-#include "Material_Transverse_Isotropic.h"
-#include "Material_Transverse_Isotropic.hh"
+#include "Material_TransIsotropic_HGO.h"
+#include "Material_TransIsotropic_HGO.hh"
 
 extern const int xstep;
 extern const int ystep;
@@ -94,11 +94,11 @@ protected:
 
 //========================================
 template <int dim>
-class Cdensity :  public Function<dim> {
+class Magnitude :  public Function<dim> {
 public:
-    Cdensity ();
-    Cdensity (const Mat_DP& collagen_density_);
-    void Set(const Mat_DP& collagen_density_);
+    Magnitude ();
+    Magnitude (const Mat_DP& collagen_density_, double scale_);
+    void Set(const Mat_DP& collagen_density_, double scale_);
 
     virtual void vector_value (const Point<dim> &p,
                                double   &value) const;
@@ -108,6 +108,7 @@ public:
 
 protected:
     Mat_DP collagen_density;
+    double scale;
 };
 
 //=======================================================================
@@ -226,12 +227,13 @@ public:
     // $\textrm{Grad}\mathbf{u}_{\textrm{n}}$, pressure $\widetilde{p}$ and
     // dilation $\widetilde{J}$ field values.
 
-    void setup_lqp (Parameters::AllParameters &parameters, double cdensity, Tensor<1,dim> M_par) {
+    void setup_lqp (Parameters::AllParameters &parameters, double cdensity, Tensor<1,dim> M_par, double cdispersion) {
       material = new Material_Compressible_TransIsotropic_Three_Field<dim>(parameters.mu,
-                                                                           parameters.nu, 
+                                                                           parameters.nu * cdensity, 
+                                                                           cdispersion,
                                                                            cdensity * parameters.k1, 
                                                                            parameters.k2,
-                                                                         M_par);
+                                                                           M_par);
                                                                          
       update_values(Tensor<2, dim>(), 0.0, 1.0);
     }
@@ -287,10 +289,15 @@ public:
       d2Psi_vol_dJ2 = material->get_d2Psi_vol_dJ2();
     }
 
-    void update_values_for_material_property(const Tensor<1, dim> &collagen_orientation,
+    void update_values_for_material_property(Parameters::AllParameters &parameters,
+                                             const Tensor<1, dim> &collagen_orientation,
+                                             double collagen_dispersion,
                                              double collagen_density)
     {
-      material->update_material_data(collagen_orientation, collagen_density);
+      material->update_material_data(collagen_orientation, collagen_dispersion, 
+                                     parameters.mu,
+                                     parameters.nu * collagen_density,
+                                     parameters.k1 * collagen_density);
 
       S = material->get_S();
       Cmaterial = material->get_Cmaterial();
@@ -383,14 +390,16 @@ public:
     ~Solid();
 
     void 
-    Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_density);
+    Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion, Mat_DP &collagen_density);
 
     void
-    RunIncrementalNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_density);
+    RunIncrementalNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion, Mat_DP &collagen_density);
 
     void
-    RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_density);
+    RunNonlinear(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion, Mat_DP &collagen_density);
 
+    void
+    Output_woundcontour();
 public:
     Mat_DP tissue_displacement_x;
     Mat_DP tissue_displacement_y;
@@ -420,7 +429,9 @@ private:
     // We start the collection of member functions with one that builds the
     // grid:
     void
-    make_grid();
+    make_grid_1();
+    void 
+    make_grid_2();
 
     // Set up the finite element system to be solved:
     void
@@ -512,6 +523,7 @@ private:
     update_qph_for_growth();
     void
     update_qph_for_material_property(const Mat_DP& collagen_direction_in_rad,
+                                     const Mat_DP& collagen_dispersion,
                                      const Mat_DP& collagen_density);
 
     // Solve for the displacement using a Newton-Raphson method. We break this
@@ -530,8 +542,6 @@ private:
     void
     output_deformation_profile(std::string suffix);
 
-    void
-    output_woundcontour();
     void
     output_results_temp(int iteration, BlockVector<double> &solution_temp) const
     {
@@ -639,8 +649,9 @@ private:
    
     int mXstep, mYstep; 
     std::map<std::pair<int, int>, int> mWoundContourHistory;
-    Cdensity<dim>                    mCollagenDensity;
+    Magnitude<dim>                   mCollagenDensity;
     Direction<dim>                   mCollagenDirection;
+    Magnitude<dim>                   mCollagenDispersion;
     RightHandSide<dim>               mFibroblastForce;
 
     // Then define a number of variables to store norms and update norms and
