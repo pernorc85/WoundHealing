@@ -167,11 +167,14 @@ template <int dim>
 void Material_Compressible_TransIsotropic_Three_Field<dim>
 ::update_material_data(const Tensor<1, dim> &collagen_orientation,
                               double collagen_dispersion_,
-                              double collagen_density_)
+                              double mu,
+                              double nu,
+                              double k1_)
 {
     M = collagen_orientation;
-    collagen_density = collagen_density_;
     dispersion_coeff = collagen_dispersion_;
+    kappa = (2.0 * mu * (1.0 + nu)) / (3.0 * (1.0 - 2.0 * nu));
+    k1 = k1_;  
  
     Tensor<1, dim> tmp = C * M;
     I4 = M * tmp;
@@ -282,7 +285,9 @@ Tensor<2, dim> Material_Compressible_TransIsotropic_Three_Field<dim>::get_S_iso4
     Tensor<2, dim> M_tensormul_M = outer_product(M, M);
     //if (I4 != 1.0) std::cout << "I4 = " << I4 << "det_Fe = " << det_Fe << std::endl;
     double exp_term4 = exp( k2*dispersion_coeff*I1_bar + k2*(1-3*dispersion_coeff) *sq (I4-1) );
+
     double dPhi_iso_dI4 = k1 * (1-3*dispersion_coeff) * (I4-1) * exp_term4;
+    //if (I4 < 1) dPhi_iso_dI4 = 0.0;
     return 2.0 * dPhi_iso_dI4 * M_tensormul_M;
 }
 
@@ -390,6 +395,11 @@ Material_Compressible_TransIsotropic_Three_Field<dim>::get_Cmaterial_iso4() cons
     double ddPhi_iso_dI4_dI4 = k1 * (aaa + 2 * k2 * sq(aaa) * sq(I4-1)) * exp_term4;
     double ddPhi_iso_dI3_dI4 = 0;
     ddPhi_iso_dI3_dI4 *= exp_term4;
+    
+    //if (I4 < 1.0) {
+    //    dPhi_iso_dI4 = 0.0;
+    //    ddPhi_iso_dI4_dI4 = 0.0;
+    //}
 
     SymmetricTensor<2, dim> dI4_dC = outer_product(M, M);
     SymmetricTensor<2, dim> dI3_dC = std::pow(det_Fe, 2.0) * Cinv;
