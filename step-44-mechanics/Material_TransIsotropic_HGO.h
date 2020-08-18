@@ -130,7 +130,9 @@ namespace Step44
     
     void update_material_data(const Tensor<1, dim> &collagen_orientation,
                               double collagen_dispersion,
-                              double collagen_density);
+                              double mu,
+                              double nu,
+                              double k1_);
 
 
     Tensor<2, dim> get_S();
@@ -178,11 +180,10 @@ namespace Step44
   protected:
     // Define constitutive model paramaters $\kappa$ (bulk modulus)and the
     // neo-Hookean model parameter $c_1$:
-    const double kappa;
+    double kappa;
     const double c_1;
-    const double k1;
+    double k1;
     const double k2;
-    double collagen_density;
     double dispersion_coeff;
     Tensor<1,dim> M;
     Tensor<2,dim> Fe;
