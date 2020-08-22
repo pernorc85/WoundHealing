@@ -17,7 +17,8 @@
  * 1) A viscoelastic model for fiber-reinforced composites at finite
  * strains: Continuum basis, computational aspects and applications.
  * Holzapfel (2001)
- * 2)
+ * 2) Hyperelastic modeling of arterial layers with distributed collagen
+ * fibre orientations. Gasser, Odgen, Holzapfel (2006)
  */
 
 #include "Material_Transverse_Isotropic.h"
