@@ -56,6 +56,7 @@
 #include "nr.h"
 #include "util.h"
 #include "BMP.h"
+#include "make_grid.hh"
 
 extern const int xstep;
 extern const int ystep;
@@ -210,8 +211,8 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
   value0 = value0*50 + 3*fb_density(p(1),p(0))*speed/15*cos(theta);
   value1 = value1*50 + 3*fb_density(p(1),p(0))*speed/15*sin(theta);
 
-  int type = 1;
-  double s = 1.5;//default = 1.0
+  int type = 2;
+  double s = 1.0;//default = 1.0
   double dist;
   switch(type){
       case 0:
@@ -236,8 +237,8 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
               values(0) = 0.0;
               values(1) = 0.0;
           } 
-          values(0) *= s;
-          values(1) *= s;
+          values(0) *= 5 * s;
+          values(1) *= 5 * s;
           //values(0) += value0;
           //values(1) += value1;
           break;
@@ -250,9 +251,9 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
           double radius = 150.0;
          
           Point<dim> p1(xstep*0.2, ystep*0.75);
-          Point<dim> p2(xstep*0.3, ystep*0.35);
-          Point<dim> p3(xstep*0.75, ystep*0.8);
-          Point<dim> p4(xstep*0.8, ystep*0.35);
+          Point<dim> p2(xstep*0.4, ystep*0.3);
+          Point<dim> p3(xstep*0.6, ystep*0.75);
+          Point<dim> p4(xstep*0.8, ystep*0.3);
 
           /*
           double p1x = 900, p1y = 2100;
@@ -386,6 +387,38 @@ void RightHandSide<dim>::vector_value (const Point<dim> &p,
           //values(1) += value1;
           break;
       }
+      case 4:{
+          //skin tension field 
+          double sign = -1.0;
+          double radius = 150.0;
+         
+          Point<dim> p1(xstep*0.83, ystep*0.75);
+          Point<dim> p2(xstep*0.83, ystep*0.25);
+
+          double dist1 = p.distance(p1);
+          double dist2 = p.distance(p2);
+          if (dist1 < radius){
+              dist = dist1;
+              if (dist < radius * 0.25) {
+                  values(0) = sign * s * 10 * 0.75;
+                  values(1) = 0.0;
+              } else {
+                  values(0) = sign * s * 10 * (1 - dist/radius);
+                  values(1) = 0.0;
+              }
+          } else if (dist2 < radius){
+              dist = dist2;
+              if (dist < radius * 0.25) {
+                  values(0) = sign * s * 10 * 0.75;
+                  values(1) = 0.0;
+              } else {
+                  values(0) = sign * s * 10 * (1 - dist/radius);
+                  values(1) = 0.0;
+              }
+          } 
+          break;
+      }
+
       default:
           values(0) = value0;
           values(1) = value1;
@@ -554,7 +587,8 @@ template <int dim>
 void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion, 
                        Mat_DP &collagen_density)
 {
-    make_grid_2();
+    make_grid_1();
+    //make_grid_3<dim>(triangulation, mXstep, mYstep, vol_current, vol_reference, parameters.global_refinement);
     mCollagenDirection.Set(collagen_orientation);
     mCollagenDispersion.Set(collagen_dispersion, 0.1);
     mCollagenDensity.Set(collagen_density, 0.2);
@@ -888,9 +922,10 @@ void Solid<dim>::Setup(Mat_DP &collagen_orientation, Mat_DP &collagen_dispersion
 template <int dim>
 void Solid<dim>::make_grid_1() {        
     Point<dim> hole_center1(0.5*mXstep, 0.5*mYstep);
-    if (mXstep == mYstep) {
+    const double inner_radius = 400;
+    if (false) {
         //GridGenerator::hyper_cube (triangulation, 0, mXstep);
-        const double inner_radius = 400, outer_radius = 0.5 * mXstep;
+        const double outer_radius = 0.5 * mXstep;
         GridGenerator::hyper_cube_with_cylindrical_hole (triangulation, inner_radius, outer_radius);
         GridTools::shift(Point<dim>(0.5*mXstep, 0.5*mXstep), triangulation); 
         //const std::vector<unsigned int> holes = {1,1};
@@ -914,14 +949,15 @@ void Solid<dim>::make_grid_1() {
       for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face){
           if (cell->face(face)->at_boundary()) {
               boundary_count++;
-              Point<dim> cell_center = cell->center();
               Point<dim> face_center = cell->face(face)->center();
               double dist_to_center = face_center.distance(hole_center1);
               
-              if (face_center(1) > 0.98 * mYstep or face_center(1) < 0.02 * mYstep) {
+              if (face_center(0) < 0.02 * mXstep) {
+                  cell->face(face)->set_boundary_id (0);
+              } else if (face_center(1) > 0.98 * mYstep or face_center(1) < 0.02 * mYstep) {
                   cell->face(face)->set_boundary_id (2);
                   cout << "boundary_id = 2" << endl;
-              } else if (dist_to_center < 0.4 * mXstep) {
+              } else if (dist_to_center < inner_radius + 100) {
                   cout << "boundary_id = 4" << endl;
                   cell->face(face)->set_boundary_id (4);
               } else {
@@ -945,8 +981,15 @@ void Solid<dim>::make_grid_1() {
         }
     }
 
-
     triangulation.refine_global(std::max (1U, parameters.global_refinement));
+/*
+    for (auto cell = triangulation.begin_active(); cell != triangulation.end(); ++cell) {
+        if (hole_center1.distance(cell->center()) < inner_radius + 150) {
+            cell->set_refine_flag();
+        }
+    }
+    triangulation.execute_coarsening_and_refinement();
+*/
 }
 
 inline
@@ -1057,7 +1100,6 @@ void Solid<dim>::make_grid_2() {
       for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell; ++face){
           if (cell->face(face)->at_boundary()) {
               boundary_count++;
-              Point<dim> cell_center = cell->center();
               Point<dim> face_center = cell->face(face)->center();
               double dist_to_center1 = face_center.distance(hole_center1);
               double dist_to_center2 = face_center.distance(hole_center2);
@@ -1183,6 +1225,8 @@ void Solid<dim>::make_grid_2() {
             coupling[ii][jj] = DoFTools::none;
           else
             coupling[ii][jj] = DoFTools::always;
+      DoFTools::make_hanging_node_constraints(dof_handler_ref, constraints);
+      constraints.close();
       DoFTools::make_sparsity_pattern(dof_handler_ref,
                                       coupling,
                                       dsp,
@@ -1488,7 +1532,8 @@ void Solid<dim>::make_grid_2() {
             Tensor<1, dim> M_par;
             M_par[0] = dir_values[q_point][0];
             M_par[1] = dir_values[q_point][1];
-            lqph[q_point].update_values_for_material_property(M_par,
+            lqph[q_point].update_values_for_material_property(parameters,
+                                                              M_par,
                                                               disp_values[q_point],
                                                               cdensity_values[q_point]);
         }
@@ -1577,10 +1622,12 @@ void Solid<dim>::make_grid_2() {
             print_conv_footer();
             break;
         }
-        if (newton_iteration > 0) {
-            if ( error_residual_norm.u > 1.5 * last_error_u) { 
-                 //error_residual_norm.p > 1.5 * last_error_p or
-                 //error_residual_norm.J > 1.5 * last_error_J ) {
+ 
+        if (newton_iteration > 1) {
+            if ( error_residual_norm.u > 1.5 * last_error_u or 
+                 error_residual_norm.p > 1.5 * last_error_p or
+                 error_residual_norm.J > 1.5 * last_error_J ) {
+                std::cout << "last_error_u = " << last_error_u << ", error_residual_norm.u = " << error_residual_norm.u << endl;
                 std::cout << " cannot converge but we will accept the result " << std::endl;
                 print_conv_footer();
                 break;
@@ -1627,9 +1674,13 @@ void Solid<dim>::make_grid_2() {
         error_update_norm.normalise(error_update_0);
 
         solution_delta += newton_update;
+        //added 8/16/2020
+        //constraints.distribute(solution_delta);
         update_qph_incremental(solution_delta);
         BlockVector<double> solution_temp(solution_n);
         solution_temp += solution_delta;
+        //added 8/16/2020
+        //constraints.distribute(solution_temp);
 
         output_results_temp(newton_iteration, solution_temp);
 
@@ -1777,6 +1828,14 @@ void Solid<dim>::make_grid_2() {
       if (!constraints.is_constrained(i))
         error_res(i) = system_rhs(i);
 
+ 
+
+
+
+
+
+    }
+
     error_residual.norm = error_res.l2_norm();
     error_residual.u = error_res.block(u_dof).l2_norm();
     error_residual.p = error_res.block(p_dof).l2_norm();
@@ -1815,6 +1874,8 @@ void Solid<dim>::make_grid_2() {
   {
     BlockVector<double> solution_total(solution_n);
     solution_total += solution_delta;
+    //added 8/16/2020
+    //constraints.distribute(solution_total);
     return solution_total;
   }
 
@@ -2087,7 +2148,7 @@ void Solid<dim>::make_grid_2() {
         // definition of the rhs as the negative
         // of the residual, these contributions
         // are subtracted.
-        double tethering_coeff = 0.0001;
+        double tethering_coeff = 0.0;//0.004;
         Vector<double> deformation(dim+2);
         //const BlockVector<double> solution_total(get_total_solution(solution_delta));
         VectorTools::point_value(dof_handler_ref, solution_n, points[q_point], deformation);
@@ -2227,6 +2288,7 @@ void Solid<dim>::make_constraints(const int & it_nr)
     if (it_nr > 1)
       return;
     constraints.clear();
+    DoFTools::make_hanging_node_constraints(dof_handler_ref, constraints);
     const bool apply_dirichlet_bc = (it_nr == 0);
 
     // The boundary conditions for the indentation problem are as follows: On
@@ -2249,6 +2311,26 @@ void Solid<dim>::make_constraints(const int & it_nr)
     const FEValuesExtractors::Scalar y_displacement(1);
 
     {
+      const int boundary_id = 0;
+
+      std::vector<bool> components(n_components, true);
+
+      if (apply_dirichlet_bc == true)
+        VectorTools::interpolate_boundary_values(dof_handler_ref,
+                                                 boundary_id,
+                                                 ConstantFunction<dim>(0.0, n_components),
+                                                 constraints,
+                                                 components);
+                                                 //fe.component_mask(x_displacement));
+      else
+        VectorTools::interpolate_boundary_values(dof_handler_ref,
+                                                 boundary_id,
+                                                 ZeroFunction<dim>(n_components),
+                                                 constraints,
+                                                 components);
+                                                 //fe.component_mask(x_displacement));
+    }
+    {
       const int boundary_id = 1;
 
       std::vector<bool> components(n_components, true);
@@ -2259,12 +2341,14 @@ void Solid<dim>::make_constraints(const int & it_nr)
                                                  ZeroFunction<dim>(n_components),
                                                  constraints,
                                                  components);
+                                                 //fe.component_mask(x_displacement));
       else
         VectorTools::interpolate_boundary_values(dof_handler_ref,
                                                  boundary_id,
                                                  ZeroFunction<dim>(n_components),
                                                  constraints,
                                                  components);
+                                                 //fe.component_mask(x_displacement));
     }
     {
       const int boundary_id = 2;
@@ -2276,18 +2360,66 @@ void Solid<dim>::make_constraints(const int & it_nr)
                                                  boundary_id,
                                                  ZeroFunction<dim>(n_components),
                                                  constraints,
+                                                 components);
+                                                 //fe.component_mask(x_displacement));
+      else
+        VectorTools::interpolate_boundary_values(dof_handler_ref,
+                                                 boundary_id,
+                                                 ZeroFunction<dim>(n_components),
+                                                 constraints,
+                                                 components);
+                                                 //fe.component_mask(x_displacement));
+    }
+    {
+      const int boundary_id = 4;
+
+      std::vector<bool> components(n_components, true);
+
+      if (apply_dirichlet_bc == true) {
+        VectorTools::interpolate_boundary_values(dof_handler_ref,
+                                                 boundary_id,
+                                                 ConstantFunction<dim>(30.0, n_components),
+                                                 constraints,
                                                  //components);
-                                                 fe.component_mask(x_displacement));
+                                                 fe.component_mask(y_displacement));
+
+        VectorTools::interpolate_boundary_values(dof_handler_ref,
+                                                 boundary_id,
+                                                 ConstantFunction<dim>(0.0, n_components),
+                                                 constraints,
+                                                 //components);
+                                                 fe.component_mask(y_displacement));
+     
+      } else
+        VectorTools::interpolate_boundary_values(dof_handler_ref,
+                                                 boundary_id,
+                                                 ZeroFunction<dim>(n_components),
+                                                 constraints,
+                                                 components);
+    }
+    {
+      const int boundary_id = 5;
+
+      std::vector<bool> components(n_components, true);
+
+      if (apply_dirichlet_bc == true)
+        VectorTools::interpolate_boundary_values(dof_handler_ref,
+                                                 boundary_id,
+                                                 ZeroFunction<dim>(n_components),
+                                                 constraints,
+                                                 //components);
+                                                 fe.component_mask(y_displacement));
       else
         VectorTools::interpolate_boundary_values(dof_handler_ref,
                                                  boundary_id,
                                                  ZeroFunction<dim>(n_components),
                                                  constraints,
                                                  //components);
-                                                 fe.component_mask(x_displacement));
+                                                 fe.component_mask(y_displacement));
     }
 
-    bool extra_constraint = false;
+
+    bool extra_constraint = true;
     if (!extra_constraint) {
         constraints.close();
         return;
@@ -2301,15 +2433,20 @@ void Solid<dim>::make_constraints(const int & it_nr)
     for (; cell != endc; ++cell) {
         cell->get_dof_indices (local_dof_indices);
         Point<dim> cell_center = cell->center();
-        if (abs(cell_center(0) - 0.5 * xstep) < 30.0 and
-                cell_center(1) > 0.5 * ystep and cell_center(1) < 0.55 * ystep){
-            //cout << "found cell to constrain" << endl;
-            for(unsigned int dof_index : local_dof_indices) {
-                if (dof_touched[dof_index] == false) {
-                    dof_touched[dof_index] = true;
-                    constraints.add_line(dof_index);
-                    //constraints.set_inhomogeneity(dof_index, 0.0);//
-                }
+
+        for(unsigned int vertex=0; vertex < GeometryInfo<dim>::vertices_per_cell; vertex++) {
+            unsigned int dof_index_x = cell->vertex_dof_index(vertex,0);
+            unsigned int dof_index_y = cell->vertex_dof_index(vertex,1);
+            //cout << "vertex " << vertex << ", dof " << dof_index << endl;
+            Point<dim> dof_location = cell->vertex(vertex);
+            //cout << "location = " << dof_location(0) << ", " << dof_location(1) << endl;
+            if (abs(dof_location(1) - 0.7 * ystep) < 80.0 and
+                    abs(dof_location(0) - 0.5 * xstep) < 500.0 ) {
+                constraints.add_line(dof_index_x);
+                constraints.add_line(dof_index_y);
+                constraints.set_inhomogeneity(dof_index_x, 0.0);//
+                cout << "dof_index = " << dof_index_x << "constrint added" << endl;
+                cout << "dof_index = " << dof_index_y << "constrint added" << endl;
             }
         }
     }
@@ -2943,7 +3080,6 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
     }
  
 
-    /*
     for(int i=0; i<mYstep; i++) {
         for(int j=0; j<mXstep; j++) {
             point(0) = (double)j;
@@ -2955,7 +3091,7 @@ void Solid<dim>::output_deformation_profile(std::string suffix)
             }
         }
     }
-    */
+
 }
 
 template <int dim>
